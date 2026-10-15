@@ -161,6 +161,7 @@ class SettingsFragment : Fragment(), BackPressInterceptor {
             titleRes = R.string.pref_exoplayer_allow_background_audio
             summaryRes = R.string.pref_exoplayer_allow_background_audio_summary
             enabled = appPreferences.videoPlayerType == VideoPlayerType.EXO_PLAYER
+            defaultValue = true // KinoLel: Hintergrund-Ton standardmäßig an
         }
         horizontalGesturePreference = checkBox(Constants.PREF_EXOPLAYER_ALLOW_HORIZONTAL_GESTURE) {
             titleRes = R.string.pref_exoplayer_allow_horizontal_gesture

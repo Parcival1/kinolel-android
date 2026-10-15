@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- KinoLel: eigene Texte (Standard Deutsch, Ungarisch in values-hu) -->
+<resources>
+    <string name="kinolel_verbinde">Verbindung zu %1$s wird hergestellt …</string>
+    <string name="kinolel_nicht_erreichbar">%1$s ist gerade nicht erreichbar.\nBitte Internetverbindung prüfen – es wird weiter versucht.</string>
+    <string name="kinolel_nochmal">Erneut versuchen</string>
+</resources>

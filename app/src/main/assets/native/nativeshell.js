@@ -9,7 +9,7 @@ const features = [
     "fileinput",
     "htmlaudioautoplay",
     "htmlvideoautoplay",
-    "multiserver",
+    // KinoLel: kein "multiserver" – fester Server https://kinolel.de, keine Serverauswahl
     "physicalvolumecontrol",
     "remotecontrol",
     "subtitleappearancesettings",
@@ -76,7 +76,8 @@ window.NativeShell = {
     },
 
     selectServer() {
-        window.NativeInterface.openServerSelection();
+        // KinoLel: fester Server – statt Serverauswahl nur neu laden
+        window.location.reload();
     },
 
     getPlugins() {

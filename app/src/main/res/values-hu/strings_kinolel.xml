@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="kinolel_verbinde">%1$s – kapcsolódás …</string>
+    <string name="kinolel_nicht_erreichbar">%1$s most nem érhető el.\nKérjük, ellenőrizd az internetkapcsolatot – tovább próbálkozunk.</string>
+    <string name="kinolel_nochmal">Újra</string>
+</resources>

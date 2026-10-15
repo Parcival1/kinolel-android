@@ -117,7 +117,8 @@ class AppPreferences(context: Context) {
         }
 
     val exoPlayerAllowBackgroundAudio: Boolean
-        get() = sharedPreferences.getBoolean(Constants.PREF_EXOPLAYER_ALLOW_BACKGROUND_AUDIO, false)
+        // KinoLel: standardmäßig AN – Ton läuft weiter bei gesperrtem Bildschirm / App im Hintergrund (Lel)
+        get() = sharedPreferences.getBoolean(Constants.PREF_EXOPLAYER_ALLOW_BACKGROUND_AUDIO, true)
 
     val exoPlayerAllowHorizontalGesture: Boolean
         get() = sharedPreferences.getBoolean(Constants.PREF_EXOPLAYER_ALLOW_HORIZONTAL_GESTURE, true)

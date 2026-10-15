@@ -1,97 +1,39 @@
-<h1 align="center">Jellyfin for Android</h1>
-<h3 align="center">Part of the <a href="https://jellyfin.org">Jellyfin Project</a></h3>
+# KinoLel – Android-App
 
----
+Android-App für [KinoLel](https://kinolel.de). Sie öffnet direkt die Anmeldung von `https://kinolel.de` (ohne
+Serverauswahl) und zeigt die gewohnte KinoLel-Oberfläche inkl. Sprachwahl Deutsch/Magyar. Filme laufen im nativen
+Player (ExoPlayer/Media3) – **auch bei gesperrtem Bildschirm oder wenn die App im Hintergrund ist geht der Ton weiter**,
+gesteuert über die Benachrichtigung bzw. den Sperrbildschirm.
 
-<p align="center">
-<img alt="Logo Banner" src="https://raw.githubusercontent.com/jellyfin/jellyfin-ux/master/branding/SVG/banner-logo-solid.svg?sanitize=true"/>
-<br/>
-<br/>
-<a href="https://github.com/jellyfin/jellyfin-android">
-<img alt="GPL 2.0 License" src="https://img.shields.io/github/license/jellyfin/jellyfin-android.svg"/>
-</a>
-<a href="https://github.com/jellyfin/jellyfin-android/releases">
-<img alt="Current Release" src="https://img.shields.io/github/release/jellyfin/jellyfin-android.svg"/>
-</a>
-<a href="https://translate.jellyfin.org/projects/jellyfin-android/jellyfin-android/">
-<img alt="Translation Status" src="https://translate.jellyfin.org/widgets/jellyfin-android/-/jellyfin-android/svg-badge.svg"/>
-</a>
-<br/>
-<a href="https://opencollective.com/jellyfin">
-<img alt="Donate" src="https://img.shields.io/opencollective/all/jellyfin.svg?label=backers"/>
-</a>
-<a href="https://features.jellyfin.org">
-<img alt="Feature Requests" src="https://img.shields.io/badge/fider-vote%20on%20features-success.svg"/>
-</a>
-<a href="https://matrix.to/#/+jellyfin:matrix.org">
-<img alt="Chat on Matrix" src="https://img.shields.io/matrix/jellyfin:matrix.org.svg?logo=matrix"/>
-</a>
-<a href="https://www.reddit.com/r/jellyfin/">
-<img alt="Join our Subreddit" src="https://img.shields.io/badge/reddit-r%2Fjellyfin-%23FF5700.svg"/>
-</a>
-<br/>
-<a href="https://play.google.com/store/apps/details?id=org.jellyfin.mobile">
-<img width="153" src="https://jellyfin.org/images/store-icons/google-play.png" alt="Jellyfin on Google Play"/>
-</a>
-<a href="https://www.amazon.com/gp/aw/d/B081RFTTQ9">
-<img width="153" src="https://jellyfin.org/images/store-icons/amazon.png" alt="Jellyfin on Amazon Appstore"/>
-</a>
-<a href="https://f-droid.org/en/packages/org.jellyfin.mobile/">
-<img width="153" src="https://jellyfin.org/images/store-icons/fdroid.png" alt="Jellyfin on F-Droid"/>
-</a>
-<br/>
-<a href="https://repo.jellyfin.org/releases/client/android/">Download archive</a>
-</p>
+Grundlage ist **[Jellyfin for Android](https://github.com/jellyfin/jellyfin-android)**; dieses Projekt ist eine
+Abspaltung davon und steht wie das Original unter der **GNU General Public License v2.0** ([LICENSE.md](LICENSE.md)).
+Original-README: [README-jellyfin.md](README-jellyfin.md).
 
-Jellyfin Mobile is an Android app that connects to Jellyfin instances and integrates with the [official web client](https://github.com/jellyfin/jellyfin-web).
-We welcome all contributions and pull requests! If you have a larger feature in mind please open an issue so we can discuss the implementation before you start.
-Even though the client is only a web wrapper there are still lots of improvements and bug fixes that can be accomplished with Android and Kotlin knowledge.
+## Was gegenüber Jellyfin for Android anders ist
 
-Most of the translations can be found in the [web client](https://translate.jellyfin.org/projects/jellyfin/jellyfin-web) since it's the base for the Android client as well. Translations for the app can also be improved very easily from our [Weblate](https://translate.jellyfin.org/projects/jellyfin-android/jellyfin-android) instance. Look through the following graphic to see if your native language could use some work!
+| Bereich | KinoLel |
+|---|---|
+| Name, Server, Kennung, Version | an **einer** Stelle: [`marke.properties`](marke.properties) (`de.kinolel.app`) |
+| Start | KinoLel-Logo mit Lavendel-Ladekreis, verbindet fest mit `https://kinolel.de`; bei Ausfall Hinweis + „Erneut versuchen“ (`ui/screens/connect/FesterServer.kt`) |
+| Serverauswahl | entfernt (`multiserver` aus, „Anderer Server“ ausgeblendet) |
+| **Hintergrund** | Einstellung „Hintergrundwiedergabe“ **standardmäßig an**: Video läuft bei gesperrtem Bildschirm als Ton weiter (Vordergrunddienst `mediaPlayback`, MediaSession, Steuerung auf dem Sperrbildschirm, WLAN-/CPU-Wachhaltung) |
+| Symbole/Farben | KinoLel-Logo (adaptiv + Themensymbol), Grund `#0b0f18`, Akzent `#9aa4ff` (`marke/android_bilder.py`) |
+| Build | GitHub Actions ([`.github/workflows/android.yml`](.github/workflows/android.yml)): signierte APK, Rauchtest im Emulator, Release bei Tag `v*` |
 
-<a href="https://translate.jellyfin.org/engage/jellyfin-android/">
-<img alt="Detailed Translation Status" src="https://translate.jellyfin.org/widgets/jellyfin-android/-/jellyfin-android/multi-auto.svg"/>
-</a>
+Alle Änderungen im Code sind mit `KinoLel` kommentiert (`git grep -n KinoLel`).
 
-This client was rewritten from scratch with a fresh git history in July to August 2020, and replaces the old Cordova-based client,
-which can still be found [in the archives](https://github.com/jellyfin-archive/jellyfin-android-original).
+## Bauen
 
-## Build Process
+Automatisch bei jedem Push auf `main` (Ergebnis: Actions → android → Artifacts `kinolel-android-apk`, `rauchtest-bilder`).
+Testversion: `VERSION` in `marke.properties` erhöhen, committen, Tag `v<Version>` pushen → Releases.
 
-### Dependencies
+Signierschlüssel: liegt nur auf dem KinoLel-Server (nur root lesbar) und verschlüsselt als GitHub-Secrets
+(`KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `SIGNING_KEY_ALIAS`, `SIGNING_KEY_PASSWORD`). Ohne denselben Schlüssel lassen
+sich Updates nicht über eine installierte Version installieren.
 
-- Android SDK
+## Neue Jellyfin-Android-Versionen übernehmen
 
-### Build
-
-1. Clone or download this repository
-
-   ```sh
-   git clone https://github.com/jellyfin/jellyfin-android.git
-   cd jellyfin-android
-   ```
-
-2. Open the project in Android Studio and run it from there or build an APK directly through Gradle:
-
-   ```sh
-   ./gradlew assembleDebug
-   ```
-
-### Deploy to device/emulator
-
-   ```sh
-   ./gradlew installDebug
-   ```
-
-*You can also replace the "Debug" with "Release" to get an optimized release binary.*
-
-## Release Flavors
-
-There are two flavors (variants) of the Jellyfin for Android app:
-
-- The **proprietary** version comes with Google Chromecast support
-- The **libre** version comes without Google Chromecast support
-
-The proprietary version is available on [Google Play](https://play.google.com/store/apps/details?id=org.jellyfin.mobile) and the [Amazon Appstore](https://www.amazon.com/gp/aw/d/B081RFTTQ9), while the libre version is available on [F-Droid](https://f-droid.org/en/packages/org.jellyfin.mobile/).
-Additionally, `beta` releases exist for both flavors, but only the proprietary version is published to a beta track on [Google Play](https://play.google.com/store/apps/details?id=org.jellyfin.mobile).
-If you'd like to test the beta outside of Google Play, you can simply download it from the [GitHub releases](https://github.com/jellyfin/jellyfin-android/releases/latest).
+```bash
+git remote add upstream https://github.com/jellyfin/jellyfin-android.git   # einmalig
+git fetch upstream && git merge upstream/master
+```

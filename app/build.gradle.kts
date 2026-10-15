@@ -1,5 +1,7 @@
 import io.gitlab.arturbosch.detekt.Detekt
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import java.util.Properties
+
 
 plugins {
     alias(libs.plugins.android.app)
@@ -11,6 +13,9 @@ plugins {
     alias(libs.plugins.detekt)
     alias(libs.plugins.android.junit5)
 }
+
+// KinoLel: Name, Server, Kennung, Version aus marke.properties (einzige Stelle)
+val marke = Properties().apply { rootProject.file("marke.properties").reader(Charsets.UTF_8).use { load(it) } }
 
 detekt {
     buildUponDefaultConfig = true
@@ -31,12 +36,18 @@ android {
     compileSdk = libs.versions.android.compileSdk.get().toInt()
 
     defaultConfig {
+        applicationId = marke.getProperty("APPLICATION_ID")
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
-        versionName = project.getVersionName()
+        versionName = project.getVersionName(fallback = marke.getProperty("VERSION"))
         versionCode = getVersionCode(versionName!!)
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
+        // KinoLel: App-Name und fester Server
+        resValue("string", "app_name", marke.getProperty("APP_NAME"))
+        resValue("string", "app_name_short", marke.getProperty("APP_NAME"))
+        buildConfigField("String", "APP_NAME", "\"${marke.getProperty("APP_NAME")}\"")
+        buildConfigField("String", "SERVER_URL", "\"${marke.getProperty("SERVER_URL")}\"")
     }
 
     signingConfigs {
@@ -122,7 +133,7 @@ android {
     }
 }
 
-base.archivesName.set("jellyfin-android-v${project.getVersionName()}")
+base.archivesName.set("kinolel-android-v${project.getVersionName(fallback = marke.getProperty("VERSION"))}")
 
 dependencies {
     val proprietaryImplementation by configurations

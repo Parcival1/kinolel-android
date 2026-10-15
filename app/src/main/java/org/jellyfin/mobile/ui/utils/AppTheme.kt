@@ -14,12 +14,12 @@ fun AppTheme(content: @Composable () -> Unit) {
     val colors = remember {
         @Suppress("MagicNumber")
         darkColors(
-            primary = Color(0xFF00A4DC),
-            primaryVariant = Color(0xFF202020),
-            background = Color(0xFF101010),
-            surface = Color(0xFF363636),
+            primary = Color(0xFF9AA4FF), // KinoLel: Lavendel
+            primaryVariant = Color(0xFF151B2A),
+            background = Color(0xFF0B0F18),
+            surface = Color(0xFF151B2A),
             error = Color(0xFFCF6679),
-            onPrimary = Color.White,
+            onPrimary = Color(0xFF0B0F18),
             onSecondary = Color.White,
             onBackground = Color.White,
             onSurface = Color.White,

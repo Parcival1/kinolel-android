@@ -1,6 +1,7 @@
 package org.jellyfin.mobile.ui.screens.connect
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -14,6 +15,7 @@ import androidx.compose.material.Text
 import androidx.compose.material.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -31,15 +33,17 @@ fun ConnectScreen(
     showExternalConnectionError: Boolean,
     activityEventHandler: ActivityEventHandler = koinInject(),
 ) {
-    Surface(color = MaterialTheme.colors.background) {
+    // KinoLel: Startbild mit Ladekreis und festem Server (keine Serverauswahl)
+    Surface(color = KINOLEL_GRUND) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .systemBarsPadding()
                 .padding(horizontal = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
         ) {
-            LogoHeader()
-            ServerSelection(
+            FesterServer(
                 showExternalConnectionError = showExternalConnectionError,
                 onConnected = { hostname ->
                     mainViewModel.switchServer(hostname)
