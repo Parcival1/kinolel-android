@@ -49,10 +49,13 @@ fun ConnectScreen(
                     mainViewModel.switchServer(hostname)
                 },
             )
-            StyledTextButton(
+            // KinoLel: dezent (Textknopf statt gefülltem Knopf)
+            TextButton(
                 onClick = { activityEventHandler.emit(ActivityEvent.OpenDownloads) },
-                text = stringResource(R.string.view_downloads),
-            )
+                modifier = Modifier.padding(top = 8.dp),
+            ) {
+                Text(text = stringResource(R.string.view_downloads), color = KINOLEL_LAVENDEL)
+            }
         }
     }
 }

@@ -105,6 +105,7 @@ jobs:
           api-level: 34
           arch: x86_64
           target: google_apis
+          profile: pixel_7
           disable-animations: true
           script: bash .github/scripts/rauchtest.sh
 
