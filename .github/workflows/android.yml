@@ -60,7 +60,9 @@ jobs:
           APK=$(find app/build/outputs/apk/proprietary/release -name "*.apk" | head -1)
           cp "$APK" "build/kinolel/KinoLel-$JELLYFIN_VERSION.apk"
           BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
-          "$BT/apksigner" verify --print-certs "build/kinolel/KinoLel-$JELLYFIN_VERSION.apk" | grep -E "Signer #1 certificate (DN|SHA-256)"
+          # Exit-Code 0 = Signatur gültig; Zertifikat anzeigen (SHA-256 muss zum Schlüssel auf CT 104 passen)
+          "$BT/apksigner" verify --print-certs "build/kinolel/KinoLel-$JELLYFIN_VERSION.apk" > "$RUNNER_TEMP/signatur.txt"
+          grep -i -E "certificate (DN|SHA-256)" "$RUNNER_TEMP/signatur.txt" || cat "$RUNNER_TEMP/signatur.txt"
           rm -f "$RUNNER_TEMP/kinolel-release.p12"
 
       - name: Upload APK
