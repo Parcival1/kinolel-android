@@ -50,7 +50,7 @@ jobs:
         env:
           KEYSTORE_FILE: ${{ runner.temp }}/kinolel-release.p12
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
+          SIGNING_KEY_ALIAS: kinolel # nicht geheim (als Secret würde GitHub das Wort in allen Logs schwärzen)
           SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
         run: ./gradlew assembleProprietaryRelease
 

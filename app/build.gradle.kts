@@ -111,6 +111,7 @@ android {
 
     buildFeatures {
         buildConfig = true
+        resValues = true // KinoLel: app_name aus marke.properties
         viewBinding = true
         compose = true
     }
