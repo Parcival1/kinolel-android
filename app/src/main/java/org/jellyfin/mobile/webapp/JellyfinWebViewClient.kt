@@ -1,5 +1,8 @@
 package org.jellyfin.mobile.webapp
 
+import android.content.ActivityNotFoundException
+import android.content.Intent
+import android.net.Uri
 import android.net.http.SslError
 import android.webkit.SslErrorHandler
 import android.webkit.WebResourceRequest
@@ -39,6 +42,25 @@ abstract class JellyfinWebViewClient(
     abstract fun onConnectedToWebapp()
 
     abstract fun onErrorReceived()
+
+    /**
+     * KinoLel: Links zu anderen Seiten nicht im Jellyfin-WebView öffnen, sondern über Android. So öffnet ein Link auf
+     * KinoLel Wünsche (wuensche.kinolel.de / kivansagok.kinolel.de) direkt die App „KinoLel Wünsche“ (App-Link),
+     * alles andere den Browser.
+     */
+    override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
+        val url = request.url
+        if (!request.isForMainFrame || (url.scheme != "http" && url.scheme != "https")) return false
+        val eigenerServer = Uri.parse(server.hostname).host
+        if (eigenerServer == null || url.host.equals(eigenerServer, ignoreCase = true)) return false
+        return try {
+            view.context.startActivity(Intent(Intent.ACTION_VIEW, url).addCategory(Intent.CATEGORY_BROWSABLE))
+            true
+        } catch (e: ActivityNotFoundException) {
+            Timber.w(e, "Kein Programm für %s", url)
+            false
+        }
+    }
 
     override fun shouldInterceptRequest(webView: WebView, request: WebResourceRequest): WebResourceResponse? {
         val url = request.url
