@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- KinoLel-Logo (Leinwand + Play), erzeugt aus dem SVG-Pfad von kinolel.de -->
+<!-- KinoLel-Logo (Leinwand + Play) wie auf kinolel.de: Dreieck ausgestanzt, kein Lila (Lel 16.10.) -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
@@ -10,9 +10,6 @@
         android:translateY="36.092"
         android:scaleX="0.08272"
         android:scaleY="0.08272">
-        <path
-            android:fillColor="#9AA4FF"
-            android:pathData="M308,156L401,216L308,279Z" />
         <path
             android:fillColor="#FFFFFF"
             android:fillType="evenOdd"

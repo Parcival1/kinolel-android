@@ -3,4 +3,13 @@
     <string name="kinolel_verbinde">%1$s – kapcsolódás …</string>
     <string name="kinolel_nicht_erreichbar">%1$s most nem érhető el.\nKérjük, ellenőrizd az internetkapcsolatot – tovább próbálkozunk.</string>
     <string name="kinolel_nochmal">Újra</string>
+    <string name="kinolel_update_titel">Frissítés elérhető</string>
+    <string name="kinolel_update_text">A(z) %1$s %2$s verziója elérhető. Frissítsünk most?</string>
+    <string name="kinolel_update_jetzt">Frissítés most</string>
+    <string name="kinolel_update_spaeter">Később</string>
+    <string name="kinolel_update_laedt">Frissítés letöltése …</string>
+    <string name="kinolel_update_fehler">A frissítést nem sikerült letölteni.</string>
+    <string name="kinolel_update_erlaubnis_titel">Engedély a frissítésekhez</string>
+    <string name="kinolel_update_erlaubnis_text">Ahhoz, hogy a(z) %1$s frissíteni tudja magát, egyszer engedélyezni kell az „Ismeretlen alkalmazások telepítése” beállítást. Kapcsold be a következő oldalon, majd térj vissza – a frissítés automatikusan folytatódik.</string>
+    <string name="kinolel_update_erlaubnis_oeffnen">Beállítások megnyitása</string>
 </resources>

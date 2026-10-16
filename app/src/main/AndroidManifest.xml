@@ -20,6 +20,8 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- KinoLel: Auto-Update (APK aus GitHub-Releases installieren) -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <queries>
         <intent>
@@ -102,6 +104,16 @@
             android:readPermission="android.permission.MEDIA_CONTENT_CONTROL" />
 
         <receiver android:name="org.jellyfin.mobile.downloads.DownloadBroadcastReceiver" />
+        <!-- KinoLel: geladene Update-APK an den Android-Installer übergeben -->
+        <provider
+            android:name="org.jellyfin.mobile.kinolel.UpdateDateiProvider"
+            android:authorities="${applicationId}.updates"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/kinolel_updates" />
+        </provider>
 
         <meta-data
             android:name="com.google.android.gms.version"

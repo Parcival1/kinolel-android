@@ -48,6 +48,7 @@ android {
         resValue("string", "app_name_short", marke.getProperty("APP_NAME"))
         buildConfigField("String", "APP_NAME", "\"${marke.getProperty("APP_NAME")}\"")
         buildConfigField("String", "SERVER_URL", "\"${marke.getProperty("SERVER_URL")}\"")
+        buildConfigField("String", "UPDATE_REPO", "\"${marke.getProperty("UPDATE_REPO")}\"")
     }
 
     signingConfigs {

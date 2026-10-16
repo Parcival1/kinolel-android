@@ -23,6 +23,7 @@ import androidx.lifecycle.withStarted
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import org.jellyfin.mobile.events.ActivityEventHandler
+import org.jellyfin.mobile.kinolel.Aktualisierung
 import org.jellyfin.mobile.player.cast.Chromecast
 import org.jellyfin.mobile.player.cast.IChromecast
 import org.jellyfin.mobile.player.ui.PlayerFragment
@@ -144,6 +145,15 @@ class MainActivity : AppCompatActivity() {
 
         // Setup Chromecast
         chromecast.initializePlugin(this)
+
+        // KinoLel: nach neuer Version suchen (GitHub-Releases)
+        Aktualisierung.pruefen(this)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // KinoLel: Update fortsetzen, nachdem „Unbekannte Apps installieren“ erlaubt wurde
+        Aktualisierung.fortsetzen(this)
     }
 
     override fun onStart() {
