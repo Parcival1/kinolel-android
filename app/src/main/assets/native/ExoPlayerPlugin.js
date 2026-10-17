@@ -20,6 +20,12 @@ export class ExoPlayerPlugin {
         this._paused = true;
 
         this._nativePlayer = window['NativePlayer'];
+
+        // KinoLel (Funktionstest 17.10.2026, F1): Server-Befehle (Pause/Fortsetzen/Stopp/Spulen, z. B. vom Dashboard oder
+        // der Wiedergabe-Grenze) kommen ueber die Live-Verbindung der Weboberflaeche. Die fuehrt den nativen Player nicht
+        // als ihren aktuellen Player und verwirft die Befehle - deshalb hier direkt an den nativen Player weiterreichen.
+        this._kinolelBefehl = this._kinolelBefehl.bind(this);
+        this._kinolelBinden();
     }
 
     async play(options) {
@@ -32,6 +38,7 @@ export class ExoPlayerPlugin {
             maxStreamingBitrateRemote: this.appSettings.maxStreamingBitrate(false, 'Video'),
         };
 
+        this._kinolelBinden();
         this._paused = false;
         this._nativePlayer.loadPlayer(JSON.stringify(options), JSON.stringify(preferences));
         this.loading.hide();
@@ -180,6 +187,29 @@ export class ExoPlayerPlugin {
         // keine automatische naechste Folge aus der Weboberflaeche - das macht der native Player selbst
         this.playbackManager._playNextAfterEnded = false;
         this.events.trigger(this, 'stopped', [{}]);
+    }
+
+    _kinolelBinden() {
+        const api = window['ApiClient'];
+        if (!api || api === this._kinolelApi) return;
+        if (this._kinolelApi) this.events.off(this._kinolelApi, 'message', this._kinolelBefehl);
+        this.events.on(api, 'message', this._kinolelBefehl);
+        this._kinolelApi = api;
+    }
+
+    _kinolelBefehl(e, msg) {
+        if (!msg || msg.MessageType !== 'Playstate' || !msg.Data) return;
+        // Spielt ein Player der Weboberflaeche, bekommt der den Befehl selbst (sonst doppelt, z. B. PlayPause)
+        if (this.playbackManager.getCurrentPlayer()) return;
+        switch (msg.Data.Command) {
+            case 'Stop': this.stop(); break;
+            case 'Pause': this.pause(); break;
+            case 'Unpause': this.unpause(); break;
+            case 'PlayPause': this.playPause(); break;
+            case 'Seek':
+                if (msg.Data.SeekPositionTicks != null) this.seek(msg.Data.SeekPositionTicks);
+                break;
+        }
     }
 
     async getDeviceProfile() {
