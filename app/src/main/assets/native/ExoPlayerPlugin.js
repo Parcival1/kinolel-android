@@ -22,10 +22,9 @@ export class ExoPlayerPlugin {
         this._nativePlayer = window['NativePlayer'];
 
         // KinoLel (Funktionstest 17.10.2026, F1): Server-Befehle (Pause/Fortsetzen/Stopp/Spulen, z. B. vom Dashboard oder
-        // der Wiedergabe-Grenze) kommen ueber die Live-Verbindung der Weboberflaeche. Die fuehrt den nativen Player nicht
-        // als ihren aktuellen Player und verwirft die Befehle - deshalb hier direkt an den nativen Player weiterreichen.
-        this._kinolelBefehl = this._kinolelBefehl.bind(this);
-        this._kinolelBinden();
+        // der Wiedergabe-Grenze) gibt die Weboberflaeche an den playbackManager weiter. Den nativen Player fuehrt sie aber
+        // nicht als aktuellen Player - ohne den verpufften die Befehle (Spulen warf sogar "player cannot be null").
+        this._kinolelWeiterleiten();
     }
 
     async play(options) {
@@ -38,7 +37,11 @@ export class ExoPlayerPlugin {
             maxStreamingBitrateRemote: this.appSettings.maxStreamingBitrate(false, 'Video'),
         };
 
-        this._kinolelBinden();
+        // KinoLel (17.10.2026): Fokus von der angetippten Kachel nehmen. Sonst spielt die Weboberflaeche bei "Fortsetzen"
+        // vom Server (Befehl "play") die fokussierte Kachel ein zweites Mal ab - ein zweiter nativer Player startet.
+        try {
+            if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+        } catch (e) { /* egal */ }
         this._paused = false;
         this._nativePlayer.loadPlayer(JSON.stringify(options), JSON.stringify(preferences));
         this.loading.hide();
@@ -189,27 +192,23 @@ export class ExoPlayerPlugin {
         this.events.trigger(this, 'stopped', [{}]);
     }
 
-    _kinolelBinden() {
-        const api = window['ApiClient'];
-        if (!api || api === this._kinolelApi) return;
-        if (this._kinolelApi) this.events.off(this._kinolelApi, 'message', this._kinolelBefehl);
-        this.events.on(api, 'message', this._kinolelBefehl);
-        this._kinolelApi = api;
-    }
-
-    _kinolelBefehl(e, msg) {
-        if (!msg || msg.MessageType !== 'Playstate' || !msg.Data) return;
-        // Spielt ein Player der Weboberflaeche, bekommt der den Befehl selbst (sonst doppelt, z. B. PlayPause)
-        if (this.playbackManager.getCurrentPlayer()) return;
-        switch (msg.Data.Command) {
-            case 'Stop': this.stop(); break;
-            case 'Pause': this.pause(); break;
-            case 'Unpause': this.unpause(); break;
-            case 'PlayPause': this.playPause(); break;
-            case 'Seek':
-                if (msg.Data.SeekPositionTicks != null) this.seek(msg.Data.SeekPositionTicks);
-                break;
-        }
+    // Ohne aktuellen Web-Player an den nativen Player. Laeuft der nicht, verwirft die App den Befehl
+    // (NativePlayer -> Ereigniskanal ohne Empfaenger).
+    _kinolelWeiterleiten() {
+        const pm = this.playbackManager;
+        const umleiten = (name, playerIndex, nativ) => {
+            const original = pm[name];
+            if (typeof original !== 'function') return;
+            pm[name] = (...args) => {
+                if (!args[playerIndex] && !pm.getCurrentPlayer()) return nativ(...args);
+                return original.apply(pm, args);
+            };
+        };
+        umleiten('pause', 0, () => this.pause());
+        umleiten('unpause', 0, () => this.unpause());
+        umleiten('playPause', 0, () => this.playPause());
+        umleiten('stop', 0, () => this.stop());
+        umleiten('seek', 1, ticks => this.seek(ticks));
     }
 
     async getDeviceProfile() {
