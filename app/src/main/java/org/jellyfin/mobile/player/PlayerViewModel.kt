@@ -67,6 +67,7 @@ import org.jellyfin.mobile.utils.logTracks
 import org.jellyfin.mobile.utils.seekToOffset
 import org.jellyfin.mobile.utils.setPlaybackState
 import org.jellyfin.mobile.utils.toMediaMetadata
+import org.jellyfin.mobile.webapp.WebappFunctionChannel
 import org.jellyfin.sdk.api.client.ApiClient
 import org.jellyfin.sdk.api.client.exception.ApiClientException
 import org.jellyfin.sdk.api.client.extensions.displayPreferencesApi
@@ -105,6 +106,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application),
     private val userApi: UserApi = apiClient.userApi
 
     private val appPreferences: AppPreferences by inject()
+    private val webappFunctionChannel: WebappFunctionChannel by inject()
     private val lifecycleObserver = PlayerLifecycleObserver(this)
     private val audioManager: AudioManager by lazy { getApplication<Application>().getSystemService()!! }
     val notificationHelper: PlayerNotificationHelper by lazy { PlayerNotificationHelper(this) }
@@ -481,6 +483,11 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application),
             hasFinished -> mediaSource.runTime.inWholeTicks
             else -> player.currentPosition.milliseconds.inWholeTicks
         }
+
+        // KinoLel (Funktionstest 16.10.2026, F3): Die Weboberflaeche hielt den Player nach dem Schliessen weiter fuer aktiv;
+        // der naechste Tipp auf "Abspielen/Fortsetzen" ging dann ins Leere. Ende samt Position melden (ExoPlayerPlugin.js).
+        val positionMs = if (hasFinished) mediaSource.runTime.inWholeMilliseconds else player.currentPosition
+        webappFunctionChannel.call("window.ExoPlayer && window.ExoPlayer.kinolelBeendet && window.ExoPlayer.kinolelBeendet($positionMs);")
 
         // viewModelScope may already be cancelled at this point, so we need to fallback
         CoroutineScope(Dispatchers.Main).launch {

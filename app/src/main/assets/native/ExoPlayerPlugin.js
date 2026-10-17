@@ -170,6 +170,18 @@ export class ExoPlayerPlugin {
         this._nativePlayer.destroyPlayer();
     }
 
+    // KinoLel (Funktionstest 16.10.2026, F3): Der native Player meldet sein Ende (PlayerViewModel.reportPlaybackStop).
+    // Ohne diese Meldung hielt die Weboberflaeche den Player fuer weiter aktiv - der naechste Tipp auf
+    // "Abspielen/Fortsetzen" ging ins Leere. Die echte Position mitgeben: die Weboberflaeche meldet beim Ereignis
+    // "stopped" selbst einen Stopp an den Server und wuerde sonst die Fortsetzen-Stelle mit 0 ueberschreiben.
+    kinolelBeendet(positionMs) {
+        this._currentTime = positionMs || 0;
+        this._paused = true;
+        // keine automatische naechste Folge aus der Weboberflaeche - das macht der native Player selbst
+        this.playbackManager._playNextAfterEnded = false;
+        this.events.trigger(this, 'stopped', [{}]);
+    }
+
     async getDeviceProfile() {
         return {
             Name: 'ExoPlayer Stub',

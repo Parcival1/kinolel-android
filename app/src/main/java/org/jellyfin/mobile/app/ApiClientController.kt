@@ -36,6 +36,10 @@ class ApiClientController(
         appPreferences.currentUserId = withContext(Dispatchers.IO) {
             userDao.upsert(serverId, userId, accessToken)
         }
+        // KinoLel (Funktionstest 16.10.2026, F2): Serveradresse hier erneut setzen. LibraryService ruft beim Start
+        // loadSavedServerUser() auf und setzte sie vor der ersten Anmeldung auf null -> Player blieb schwarz
+        // (MissingBaseUrlException), bis die App neu gestartet wurde.
+        withContext(Dispatchers.IO) { serverDao.getServer(serverId) }?.let { server -> configureApiClientServer(server) }
         configureApiClientUser(userId, accessToken)
     }
 
@@ -60,9 +64,15 @@ class ApiClientController(
             userDao.getServerUser(serverId, userId)
         }
 
-        configureApiClientServer(serverUser?.server)
+        // KinoLel (F2): ohne gespeicherten Benutzer die gespeicherte Serveradresse behalten statt sie auf null zu setzen
+        if (serverUser == null) {
+            loadSavedServer()
+            resetApiClientUser()
+            return null
+        }
+        configureApiClientServer(serverUser.server)
 
-        if (serverUser?.user?.accessToken != null) {
+        if (serverUser.user.accessToken != null) {
             configureApiClientUser(serverUser.user.userId, serverUser.user.accessToken)
         } else {
             resetApiClientUser()
@@ -81,11 +91,14 @@ class ApiClientController(
         apiClient.update(baseUrl = server?.hostname)
     }
 
-    private fun configureApiClientUser(userId: UUID, accessToken: String) {
+    private fun configureApiClientUser(@Suppress("UNUSED_PARAMETER") userId: UUID, accessToken: String) {
         apiClient.update(
             accessToken = accessToken,
-            // Append user id to device id to ensure uniqueness across sessions
-            deviceInfo = baseDeviceInfo.copy(id = baseDeviceInfo.id + userId),
+            // KinoLel (Funktionstest 16.10.2026, F1): KEINE Benutzer-ID mehr an die Geraete-ID haengen. Die Weboberflaeche
+            // holt ihre Geraete-ID beim Start (vor der Anmeldung, also ohne Benutzer-ID) - der native Player meldete sich
+            // dadurch als zweites Geraet an. Server-Befehle (Pause/Stopp, Streams-Grenze) landeten in der Web-Sitzung,
+            // der Film lief aber in der anderen. Mit gleicher ID ist es eine Sitzung.
+            deviceInfo = baseDeviceInfo,
         )
     }
 
@@ -102,7 +115,7 @@ class ApiClientController(
         return jellyfin.createApi(
             baseUrl = serverUser.server.hostname,
             accessToken = serverUser.user.accessToken,
-            deviceInfo = baseDeviceInfo.copy(id = baseDeviceInfo.id + serverUser.user.userId),
+            deviceInfo = baseDeviceInfo, // KinoLel (F1): gleiche Geraete-ID wie Weboberflaeche und Player
         )
     }
 }

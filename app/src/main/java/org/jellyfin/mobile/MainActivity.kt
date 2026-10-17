@@ -20,8 +20,10 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.withStarted
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import org.jellyfin.mobile.events.ActivityEvent
 import org.jellyfin.mobile.events.ActivityEventHandler
 import org.jellyfin.mobile.kinolel.Aktualisierung
 import org.jellyfin.mobile.player.cast.Chromecast
@@ -140,6 +142,19 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        // KinoLel (Funktionstest 16.10.2026, F7): Bluetooth-Berechtigung einmal nach der Anmeldung erfragen
+        // (vorher erschien die Frage mitten in der ersten Wiedergabe)
+        lifecycleScope.launch {
+            mainViewModel.userState.collectLatest { state ->
+                if (state is UserState.Available) {
+                    delay(BLUETOOTH_FRAGE_NACH_MS)
+                    lifecycle.withStarted {
+                        activityEventHandler.emit(ActivityEvent.RequestBluetoothPermission)
+                    }
+                }
+            }
+        }
+
         // Handle back presses
         onBackPressedDispatcher.addCallback(this, onBackPressed = onBackPressedCallback)
 
@@ -221,3 +236,6 @@ class MainActivity : AppCompatActivity() {
         super.onDestroy()
     }
 }
+
+// KinoLel: Wartezeit nach der Anmeldung, bevor nach Bluetooth gefragt wird (Startseite soll erst laden)
+private const val BLUETOOTH_FRAGE_NACH_MS = 4_000L

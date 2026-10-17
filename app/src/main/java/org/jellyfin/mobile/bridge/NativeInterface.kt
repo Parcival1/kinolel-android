@@ -119,8 +119,8 @@ class NativeInterface(private val context: Context) : KoinComponent {
 
         ContextCompat.startForegroundService(context, intent)
 
-        // We may need to request bluetooth permission to react to bluetooth disconnect events
-        activityEventHandler.emit(ActivityEvent.RequestBluetoothPermission)
+        // KinoLel (Funktionstest 16.10.2026, F7): Bluetooth-Frage nicht mehr hier (mitten in der ersten Wiedergabe),
+        // sondern einmal nach der Anmeldung (MainActivity)
         return true
     }
 

@@ -102,10 +102,10 @@
     <string name="pref_subtitle_style_summary">A felirat stílusát az Android beállításaiban módosíthatja</string>
     <string name="menu_item_software_decoding">Szoftveres dekódolás</string>
     <string name="button_use_different_server">Másik szerver használata</string>
-    <string name="bluetooth_permission_title">Engedélyezi a Bluetooth hozzáférést\?</string>
+    <string name="bluetooth_permission_title">Engedélyezed a Bluetooth-hozzáférést\?</string>
     <string name="bluetooth_permission_continue">Folytatás</string>
     <string name="bluetooth_permission_granted">Bluetooth hozzáférés engedélyezve</string>
-    <string name="bluetooth_permission_message">A vezeték nélküli fejhallgató vagy hangszóró leválasztásának észleléséhez az alkalmazásnak Bluetooth-hozzáférésre van szüksége. Androidon ez az engedély a közeli eszközökhöz való hozzáférésként van leírva, és figyelmeztet arra, hogy a Bluetooth-eszközök felhasználhatók az aktuális hely megállapítására. A Jellyfin alkalmazás azonban soha nem használja ezt az engedélyt az Ön tartózkodási helyének észlelésére.</string>
+    <string name="bluetooth_permission_message">A KinoLel szeretné észlelni, ha a Bluetooth-fejhallgató vagy -hangszóró lecsatlakozik, hogy ilyenkor megállítsa a lejátszást. Az Android ezt az engedélyt „Közeli eszközök” néven mutatja, és figyelmeztet, hogy elvileg a helymeghatározásra is használható. A KinoLel erre soha nem használja.</string>
     <string name="mobile_data_and_roaming_summary">A média WiFi és mobil hálózaton és roamingon keresztül is le lesz letöltve.</string>
     <string name="wifi_only_summary">A média csak WiFi hálózaton keresztül lesz letöltve.</string>
     <string name="mobile_data_summary">A média WiFi és mobil hálózaton keresztül is le lesz letöltve.</string>
