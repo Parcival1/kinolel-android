@@ -20,3 +20,21 @@
 | 8 | Musik | Läuft im Hintergrund, Steuerung in der Benachrichtigung |
 
 Einstellung dazu: Menü → **Client-Einstellungen** → Videoplayer → „Hintergrundwiedergabe“ (standardmäßig an).
+
+## Downloads (ab v0.1.4) – wie bei Netflix
+| # | Was | Erwartung |
+|---|---|---|
+| 9 | Film oder Folge öffnen | Neben „Abspielen“ ein Knopf **Herunterladen** (Pfeil nach unten) |
+| 10 | Antippen | Auswahl **Original** oder kleiner (**Hoch 1080p / Mittel 720p / Klein 480p**) mit Größe und freiem Speicher → „Herunterladen“ |
+| 11 | Fortschritt | Knopf zeigt Prozent; Benutzermenü (Profilbild) → **Downloads**: Liste mit Fortschritt in MB |
+| 12 | Staffel/Serie öffnen | Knopf **Staffel herunterladen**; an jeder Folge ein kleiner Download-Knopf |
+| 13 | **Flugmodus** an, KinoLel neu öffnen | Die **Downloads öffnen sich von selbst** (sonst Knopf „Meine Downloads“) |
+| 14 | Download antippen | Spielt **ohne Internet**; nach erneutem Öffnen geht es an derselben Stelle weiter |
+| 15 | Flugmodus aus | KinoLel verbindet sich wieder; die offline gesehene Stelle steht danach auch auf anderen Geräten |
+| 16 | Löschen | In „Downloads“ Papierkorb neben dem Titel → Ja |
+
+Hinweise:
+- Standard: lädt **nur im WLAN** (Einstellungen → Downloads → Netzwerk).
+- Downloads liegen im geschützten App-Speicher (nicht in Galerie/Dateien), beim Deinstallieren sind sie weg.
+- Kleinere Stufen wandelt der Server beim Herunterladen um; Untertitel (auch ungarische) werden mitgeladen.
+
