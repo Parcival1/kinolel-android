@@ -35,9 +35,10 @@ enum class DownloadQualitaet(
     val audioBitrate: Int,
 ) {
     ORIGINAL(0, 0, 0, 0, 0),
-    HOCH(1, 1920, 1080, 8_000_000, 192_000),
-    MITTEL(2, 1280, 720, 4_000_000, 160_000),
-    KLEIN(3, 854, 480, 1_500_000, 128_000),
+    // Übliche Streaming-Raten (H.264). Gemessen 20.10.: der Server wandelt per GPU ~47× schneller als Echtzeit um.
+    HOCH(1, 1920, 1080, 5_000_000, 192_000),
+    MITTEL(2, 1280, 720, 2_500_000, 160_000),
+    KLEIN(3, 854, 480, 1_200_000, 128_000),
     ;
 
     val umgewandelt: Boolean get() = this != ORIGINAL
