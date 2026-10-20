@@ -52,6 +52,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import org.jellyfin.mobile.R
+import org.jellyfin.mobile.data.entity.DownloadEntity
+import org.jellyfin.mobile.kinolel.OfflineHelfer
+import androidx.compose.ui.platform.LocalContext
+import android.text.format.Formatter
 import org.jellyfin.mobile.downloads.DownloadsViewModel
 
 @Composable
@@ -64,6 +68,8 @@ fun DownloadsScreen(
     val storageLocationAccessible by viewModel.storageLocationAccessible.collectAsState()
     val selection = remember { mutableStateSetOf<Long>() }
     var showDeleteConfirm by remember { mutableStateOf(false) }
+    // KinoLel: einzelnen Download über den Papierkorb in der Zeile löschen
+    var einzelLoeschen by remember { mutableStateOf<DownloadEntity?>(null) }
     var showMenu by remember { mutableStateOf(false) }
 
     val selectionMode = selection.isNotEmpty()
@@ -92,6 +98,17 @@ fun DownloadsScreen(
                 showDeleteConfirm = false
             },
             onDismiss = { showDeleteConfirm = false },
+        )
+    }
+
+    einzelLoeschen?.let { download ->
+        DownloadRemoveDialog(
+            downloads = listOf(download),
+            onConfirm = {
+                viewModel.removeDownload(download, deleteFiles = true)
+                einzelLoeschen = null
+            },
+            onDismiss = { einzelLoeschen = null },
         )
     }
 
@@ -222,6 +239,19 @@ fun DownloadsScreen(
                     )
                 }
 
+                // KinoLel: Speicherplatz (belegt durch Downloads / frei auf dem Gerät)
+                val context = LocalContext.current
+                val belegt = downloads.sumOf { d -> d.files.sumOf { it.size } }
+                Text(
+                    text = stringResource(
+                        R.string.kinolel_dl_speicher,
+                        Formatter.formatShortFileSize(context, belegt),
+                        Formatter.formatShortFileSize(context, OfflineHelfer.freierSpeicher(context)),
+                    ),
+                    style = MaterialTheme.typography.body2,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                )
+
                 if (downloads.isEmpty()) {
                     DownloadsEmpty(modifier = Modifier.weight(1f))
                 } else {
@@ -229,6 +259,7 @@ fun DownloadsScreen(
                         downloads = downloads,
                         onOpen = { viewModel.openDownload(it) },
                         onDownload = { viewModel.download(it) },
+                        onDelete = { einzelLoeschen = it },
                         selection = selection,
                         onToggleSelection = { download ->
                             if (selection.contains(download.id)) selection.remove(download.id)

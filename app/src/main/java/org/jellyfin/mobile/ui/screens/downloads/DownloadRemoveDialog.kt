@@ -51,16 +51,7 @@ fun DownloadRemoveDialog(
                     )
                 )
 
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(top = 8.dp),
-                ) {
-                    Checkbox(
-                        checked = keepLocalFiles,
-                        onCheckedChange = { keepLocalFiles = it },
-                    )
-                    Text(text = stringResource(R.string.download_remove_keep_local))
-                }
+                // KinoLel: Downloads liegen im App-Speicher – „Dateien behalten“ ergibt dort keinen Sinn, immer löschen
             }
         },
         confirmButton = {

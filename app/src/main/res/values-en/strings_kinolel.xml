@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- KinoLel: eigene Texte auf Englisch -->
+<resources>
+    <string name="kinolel_verbinde">Connecting to %1$s …</string>
+    <string name="kinolel_nicht_erreichbar">%1$s cannot be reached right now.\nPlease check your internet connection – retrying automatically.</string>
+    <string name="kinolel_nochmal">Try again</string>
+    <string name="kinolel_update_titel">Update available</string>
+    <string name="kinolel_update_text">%1$s %2$s is available. Update now?</string>
+    <string name="kinolel_update_jetzt">Update now</string>
+    <string name="kinolel_update_spaeter">Later</string>
+    <string name="kinolel_update_laedt">Downloading update …</string>
+    <string name="kinolel_update_fehler">The update could not be downloaded.</string>
+    <string name="kinolel_update_erlaubnis_titel">Permission for updates</string>
+    <string name="kinolel_update_erlaubnis_text">To update itself, %1$s needs the permission “Install unknown apps” once. Turn it on on the next screen and come back – the update then continues automatically.</string>
+    <string name="kinolel_update_erlaubnis_oeffnen">Open settings</string>
+    <string name="kinolel_dl_ueberschrift">Download: %1$s</string>
+    <string name="kinolel_dl_folgen">%1$d episodes</string>
+    <string name="kinolel_dl_titel">%1$d titles</string>
+    <string name="kinolel_dl_q_original">Original (best quality)</string>
+    <string name="kinolel_dl_q_hoch">High (1080p)</string>
+    <string name="kinolel_dl_q_mittel">Medium (720p)</string>
+    <string name="kinolel_dl_q_klein">Small (480p)</string>
+    <string name="kinolel_dl_zu_gross">not enough space</string>
+    <string name="kinolel_dl_frei">Free on this device: %1$s</string>
+    <string name="kinolel_dl_hinweis_klein">Smaller qualities are converted by the server while downloading – this takes a bit longer.</string>
+    <string name="kinolel_dl_nur_wlan">Downloads only on Wi-Fi (change in Settings → Downloads).</string>
+    <string name="kinolel_dl_starten">Download</string>
+    <string name="kinolel_dl_gestartet">Download started (%1$d) – see “Downloads”.</string>
+    <string name="kinolel_dl_wartet_wlan">Download queued (%1$d) – starts as soon as Wi-Fi is available.</string>
+    <string name="kinolel_dl_keine_verbindung">Downloading is not possible right now – no connection to KinoLel.</string>
+    <string name="kinolel_dl_nichts">There is nothing to download here.</string>
+    <string name="kinolel_dl_wartet">Waiting … (Wi-Fi?)</string>
+    <string name="kinolel_dl_fehler">Failed – tap to retry</string>
+    <string name="kinolel_dl_loeschen">Delete download</string>
+    <string name="kinolel_dl_speicher">Downloads: %1$s · free: %2$s</string>
+    <string name="kinolel_dl_speicherort">In protected app storage (not in gallery or files, removed when uninstalling)</string>
+    <string name="kinolel_offline_hinweis">Without internet you can watch your downloads.</string>
+    <string name="kinolel_offline_downloads">My downloads (%1$d)</string>
+</resources>

@@ -49,6 +49,8 @@ android {
         buildConfigField("String", "APP_NAME", "\"${marke.getProperty("APP_NAME")}\"")
         buildConfigField("String", "SERVER_URL", "\"${marke.getProperty("SERVER_URL")}\"")
         buildConfigField("String", "UPDATE_REPO", "\"${marke.getProperty("UPDATE_REPO")}\"")
+        // KinoLel: Downloads in der App – true = nur Konten mit Jellyfin-Recht „Herunterladen“, false = alle Konten
+        buildConfigField("boolean", "DOWNLOADS_NUR_MIT_RECHT", marke.getProperty("DOWNLOADS_NUR_MIT_RECHT", "true"))
     }
 
     signingConfigs {

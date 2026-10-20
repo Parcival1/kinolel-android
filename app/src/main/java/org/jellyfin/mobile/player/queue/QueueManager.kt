@@ -13,6 +13,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.jellyfin.mobile.data.dao.DownloadDao
 import org.jellyfin.mobile.downloads.DownloadFileType
+import org.jellyfin.mobile.kinolel.DownloadQualitaet
+import org.jellyfin.mobile.kinolel.LokaleQuelle
+import org.jellyfin.mobile.kinolel.OfflineSpeicher
+import android.content.Context
+import org.jellyfin.sdk.model.extensions.ticks
 import org.jellyfin.mobile.player.PlayerException
 import org.jellyfin.mobile.player.PlayerViewModel
 import org.jellyfin.mobile.player.deviceprofile.DeviceProfileBuilder
@@ -127,15 +132,26 @@ class QueueManager(
 
         val mainFile = files.find { it.type == DownloadFileType.ITEM } ?: return PlayerException.NetworkFailure()
 
+        // KinoLel: Qualität (Original/verkleinert) und Untertitel-Dateien des Downloads
+        val info = OfflineSpeicher(get<Context>()).lesen(download.itemId)
+        val lokal = LokaleQuelle.bauen(download.item, DownloadQualitaet.von(info.qualitaet), files)
+
         val mediaSource = LocalJellyfinMediaSource(
             itemId = download.itemId,
             item = download.item,
-            sourceInfo = download.item.mediaSources!!.first(),
+            sourceInfo = lokal.quelle,
             playSessionId = download.id.toString(),
             playbackDetails = PlaybackDetails(startTime, audioStreamIndex, subtitleStreamIndex),
             remoteFileUri = mainFile.uri,
+            untertitel = lokal.untertitel,
         )
-        startTime?.let { duration -> mediaSource.startTime = duration }
+        // KinoLel: weiterschauen – offline gemerkte Position, sonst Stand beim Herunterladen
+        val weiter = startTime ?: when {
+            info.gesehen -> null
+            info.positionTicks > 0 -> info.positionTicks.ticks
+            else -> download.item.userData?.playbackPositionTicks?.takeIf { it > 0 }?.ticks
+        }
+        weiter?.let { duration -> mediaSource.startTime = duration }
         audioStreamIndex?.let { index -> mediaSource.selectAudioStream(mediaSource.audioStreams[index]) }
         subtitleStreamIndex?.let { index -> mediaSource.selectSubtitleStream(mediaSource.subtitleStreams[index]) }
 
@@ -324,7 +340,7 @@ class QueueManager(
      */
     @CheckResult
     private fun prepareStreams(source: LocalJellyfinMediaSource): MediaSource {
-        return createDownloadVideoMediaSource(source.id, source.remoteFileUri)
+        return createDownloadVideoMediaSource(source.id, source.remoteFileUri, source.untertitel)
     }
 
     private fun prepareStreams(source: RemoteJellyfinMediaSource): MediaSource {
@@ -423,13 +439,18 @@ class QueueManager(
     }
 
     @CheckResult
-    private fun createDownloadVideoMediaSource(mediaSourceId: String, fileUri: Uri): MediaSource {
+    private fun createDownloadVideoMediaSource(
+        mediaSourceId: String,
+        fileUri: Uri,
+        untertitel: List<MediaItem.SubtitleConfiguration> = emptyList(),
+    ): MediaSource {
         val factory: MediaSource.Factory = get()
 
         val mediaItem = MediaItem.Builder()
             .setMediaId(mediaSourceId)
             .setUri(fileUri)
             .setCustomCacheKey(fileUri.toString())
+            .setSubtitleConfigurations(untertitel)
             .build()
 
         return factory.createMediaSource(mediaItem)

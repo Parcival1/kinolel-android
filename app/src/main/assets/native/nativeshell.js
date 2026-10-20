@@ -133,3 +133,6 @@ window.NativeShell.AppHost = {
         window.NativeInterface.exitApp();
     }
 };
+
+// KinoLel (Lel 20.10.2026): Knopf „Herunterladen“ wie bei Netflix (native/kinolelDownloads.js)
+import('/native/kinolelDownloads.js').catch((e) => console.warn('KinoLel-Downloads nicht geladen', e));

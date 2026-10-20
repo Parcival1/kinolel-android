@@ -46,7 +46,7 @@ class SettingsFragment : Fragment(), BackPressInterceptor {
 
             // Update preference
             if (changed && ::downloadLocationPreference.isInitialized) {
-                downloadLocationPreference.summary = storageManager.getStorageLocation()?.name
+                downloadLocationPreference.summary = getString(R.string.kinolel_dl_speicherort)
                 downloadLocationPreference.requestRebindAndHighlight()
             }
         }
@@ -279,16 +279,10 @@ class SettingsFragment : Fragment(), BackPressInterceptor {
             initialSelection = DownloadMethod.DEFAULT.intValue
         }
 
+        // KinoLel: Downloads liegen immer im geschützten App-Speicher (keine Ordnerwahl) – nur Hinweis
         downloadLocationPreference = pref(Constants.PREF_STORAGE_LOCATION) {
-            val location = storageManager.getStorageLocation()
-
             titleRes = R.string.pref_download_location
-            summary = location?.name ?: getString(R.string.menu_item_none)
-
-            onClick {
-                storageLocationPicker.launch(location?.uri ?: storageManager.defaultStorageLocation)
-                false
-            }
+            summaryRes = R.string.kinolel_dl_speicherort
         }
     }
 

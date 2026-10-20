@@ -40,6 +40,8 @@ import org.jellyfin.mobile.utils.extensions.replaceFragment
 import org.jellyfin.mobile.utils.isWebViewSupported
 import org.jellyfin.mobile.webapp.RemotePlayerService
 import org.jellyfin.mobile.webapp.WebViewFragment
+import org.jellyfin.mobile.kinolel.OfflineHelfer
+import org.jellyfin.mobile.kinolel.OfflineSpeicher
 import org.koin.android.ext.android.get
 import org.koin.android.ext.android.inject
 import org.koin.androidx.fragment.android.setupKoinFragmentFactory
@@ -189,6 +191,11 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
                 is ServerState.Available -> {
+                    // KinoLel: offline gesehene Positionen (Downloads) an den Server melden, sobald er wieder erreichbar ist
+                    lifecycleScope.launch {
+                        kotlinx.coroutines.delay(NACHMELDEN_NACH_MS)
+                        OfflineHelfer.nachmelden(get(), OfflineSpeicher(this@MainActivity))
+                    }
                     if (currentFragment !is WebViewFragment || currentFragment.server != state.server) {
                         replaceFragment<WebViewFragment>(
                             Bundle().apply {
@@ -239,3 +246,6 @@ class MainActivity : AppCompatActivity() {
 
 // KinoLel: Wartezeit nach der Anmeldung, bevor nach Bluetooth gefragt wird (Startseite soll erst laden)
 private const val BLUETOOTH_FRAGE_NACH_MS = 4_000L
+
+// KinoLel: kurz warten, bis die Anmeldung steht
+private const val NACHMELDEN_NACH_MS = 5_000L

@@ -13,4 +13,27 @@
     <string name="kinolel_update_erlaubnis_titel">Erlaubnis für Updates</string>
     <string name="kinolel_update_erlaubnis_text">Damit sich %1$s selbst aktualisieren kann, braucht es einmalig die Erlaubnis „Unbekannte Apps installieren“. Auf der nächsten Seite einschalten und dann zurückkehren – das Update startet danach automatisch.</string>
     <string name="kinolel_update_erlaubnis_oeffnen">Einstellungen öffnen</string>
+    <string name="kinolel_dl_ueberschrift">Herunterladen: %1$s</string>
+    <string name="kinolel_dl_folgen">%1$d Folgen</string>
+    <string name="kinolel_dl_titel">%1$d Titel</string>
+    <string name="kinolel_dl_q_original">Original (beste Qualität)</string>
+    <string name="kinolel_dl_q_hoch">Hoch (1080p)</string>
+    <string name="kinolel_dl_q_mittel">Mittel (720p)</string>
+    <string name="kinolel_dl_q_klein">Klein (480p)</string>
+    <string name="kinolel_dl_zu_gross">zu wenig Speicher</string>
+    <string name="kinolel_dl_frei">Frei auf dem Gerät: %1$s</string>
+    <string name="kinolel_dl_hinweis_klein">Kleinere Stufen wandelt der Server beim Herunterladen um – das dauert etwas länger.</string>
+    <string name="kinolel_dl_nur_wlan">Es wird nur im WLAN heruntergeladen (änderbar unter Einstellungen → Downloads).</string>
+    <string name="kinolel_dl_starten">Herunterladen</string>
+    <string name="kinolel_dl_gestartet">Download gestartet (%1$d) – zu sehen unter „Downloads“.</string>
+    <string name="kinolel_dl_wartet_wlan">Download vorgemerkt (%1$d) – startet, sobald WLAN da ist.</string>
+    <string name="kinolel_dl_keine_verbindung">Herunterladen gerade nicht möglich – keine Verbindung zu KinoLel.</string>
+    <string name="kinolel_dl_nichts">Hier gibt es nichts zum Herunterladen.</string>
+    <string name="kinolel_dl_wartet">Wartet … (WLAN?)</string>
+    <string name="kinolel_dl_fehler">Fehlgeschlagen – tippen zum Wiederholen</string>
+    <string name="kinolel_dl_loeschen">Download löschen</string>
+    <string name="kinolel_dl_speicher">Downloads: %1$s · frei: %2$s</string>
+    <string name="kinolel_dl_speicherort">Im geschützten App-Speicher (nicht in Galerie oder Dateien, wird beim Deinstallieren gelöscht)</string>
+    <string name="kinolel_offline_hinweis">Ohne Internet kannst du deine Downloads ansehen.</string>
+    <string name="kinolel_offline_downloads">Meine Downloads (%1$d)</string>
 </resources>

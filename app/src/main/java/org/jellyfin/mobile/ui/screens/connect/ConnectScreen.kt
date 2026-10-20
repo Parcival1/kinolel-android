@@ -26,13 +26,25 @@ import org.jellyfin.mobile.events.ActivityEvent
 import org.jellyfin.mobile.events.ActivityEventHandler
 import org.jellyfin.mobile.ui.utils.CenterRow
 import org.koin.compose.koinInject
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import kotlinx.coroutines.flow.map
+import org.jellyfin.mobile.data.dao.DownloadDao
+import org.jellyfin.mobile.downloads.DownloadStatus
 
 @Composable
 fun ConnectScreen(
     mainViewModel: MainViewModel,
     showExternalConnectionError: Boolean,
+    oben: Boolean = true,
     activityEventHandler: ActivityEventHandler = koinInject(),
+    downloadDao: DownloadDao = koinInject(),
 ) {
+    // KinoLel: Anzahl fertiger Downloads (Offline-Knopf)
+    val fertigeDownloads by remember(downloadDao) {
+        downloadDao.getAllDownloads().map { liste -> liste.count { it.status == DownloadStatus.DOWNLOADED } }
+    }.collectAsState(initial = 0)
     // KinoLel: Startbild mit Ladekreis und festem Server (keine Serverauswahl)
     Surface(color = KINOLEL_GRUND) {
         Column(
@@ -45,17 +57,14 @@ fun ConnectScreen(
         ) {
             FesterServer(
                 showExternalConnectionError = showExternalConnectionError,
+                oben = oben,
+                fertigeDownloads = fertigeDownloads,
+                onDownloads = { activityEventHandler.emit(ActivityEvent.OpenDownloads) },
                 onConnected = { hostname ->
                     mainViewModel.switchServer(hostname)
                 },
             )
-            // KinoLel: dezent (Textknopf statt gefülltem Knopf)
-            TextButton(
-                onClick = { activityEventHandler.emit(ActivityEvent.OpenDownloads) },
-                modifier = Modifier.padding(top = 8.dp),
-            ) {
-                Text(text = stringResource(R.string.view_downloads), color = KINOLEL_LAVENDEL)
-            }
+            // KinoLel: Knopf zu den Downloads sitzt jetzt in FesterServer (offline groß, sonst dezent)
         }
     }
 }

@@ -12,4 +12,27 @@
     <string name="kinolel_update_erlaubnis_titel">Engedély a frissítésekhez</string>
     <string name="kinolel_update_erlaubnis_text">Ahhoz, hogy a(z) %1$s frissíteni tudja magát, egyszer engedélyezni kell az „Ismeretlen alkalmazások telepítése” beállítást. Kapcsold be a következő oldalon, majd térj vissza – a frissítés automatikusan folytatódik.</string>
     <string name="kinolel_update_erlaubnis_oeffnen">Beállítások megnyitása</string>
+    <string name="kinolel_dl_ueberschrift">Letöltés: %1$s</string>
+    <string name="kinolel_dl_folgen">%1$d epizód</string>
+    <string name="kinolel_dl_titel">%1$d cím</string>
+    <string name="kinolel_dl_q_original">Eredeti (legjobb minőség)</string>
+    <string name="kinolel_dl_q_hoch">Magas (1080p)</string>
+    <string name="kinolel_dl_q_mittel">Közepes (720p)</string>
+    <string name="kinolel_dl_q_klein">Kicsi (480p)</string>
+    <string name="kinolel_dl_zu_gross">nincs elég hely</string>
+    <string name="kinolel_dl_frei">Szabad hely az eszközön: %1$s</string>
+    <string name="kinolel_dl_hinweis_klein">A kisebb minőséget a szerver letöltés közben alakítja át – ez kicsit tovább tart.</string>
+    <string name="kinolel_dl_nur_wlan">Letöltés csak Wi-Fi-n (módosítható: Beállítások → Letöltések).</string>
+    <string name="kinolel_dl_starten">Letöltés</string>
+    <string name="kinolel_dl_gestartet">Letöltés elindult (%1$d) – a „Letöltések” között látható.</string>
+    <string name="kinolel_dl_wartet_wlan">Letöltés előjegyezve (%1$d) – Wi-Fi esetén indul.</string>
+    <string name="kinolel_dl_keine_verbindung">A letöltés most nem lehetséges – nincs kapcsolat a KinoLellel.</string>
+    <string name="kinolel_dl_nichts">Itt nincs mit letölteni.</string>
+    <string name="kinolel_dl_wartet">Várakozik … (Wi-Fi?)</string>
+    <string name="kinolel_dl_fehler">Sikertelen – koppints az újrapróbáláshoz</string>
+    <string name="kinolel_dl_loeschen">Letöltés törlése</string>
+    <string name="kinolel_dl_speicher">Letöltések: %1$s · szabad: %2$s</string>
+    <string name="kinolel_dl_speicherort">Védett alkalmazás-tárhelyen (nem jelenik meg a galériában vagy a fájlok között, eltávolításkor törlődik)</string>
+    <string name="kinolel_offline_hinweis">Internet nélkül is megnézheted a letöltéseidet.</string>
+    <string name="kinolel_offline_downloads">Letöltéseim (%1$d)</string>
 </resources>

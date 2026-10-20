@@ -4,7 +4,9 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.platform.ComposeView
+import androidx.fragment.app.FragmentManager
 import androidx.core.view.ViewCompat
 import androidx.fragment.app.Fragment
 import org.jellyfin.mobile.MainViewModel
@@ -34,11 +36,25 @@ class ConnectFragment : Fragment() {
 
         val encounteredConnectionError = arguments?.getBoolean(Constants.FRAGMENT_CONNECT_EXTRA_ERROR) == true
 
+        // KinoLel: Liegt etwas darüber (Downloads, Player), nicht automatisch zur Weboberfläche wechseln – das würde eine
+        // Offline-Wiedergabe unterbrechen, sobald das Internet zurückkommt.
+        val oben = mutableStateOf(parentFragmentManager.backStackEntryCount == 0)
+        val beobachter = FragmentManager.OnBackStackChangedListener {
+            oben.value = parentFragmentManager.backStackEntryCount == 0
+        }
+        parentFragmentManager.addOnBackStackChangedListener(beobachter)
+        viewLifecycleOwner.lifecycle.addObserver(
+            androidx.lifecycle.LifecycleEventObserver { _, ereignis ->
+                if (ereignis == androidx.lifecycle.Lifecycle.Event.ON_DESTROY) parentFragmentManager.removeOnBackStackChangedListener(beobachter)
+            },
+        )
+
         composeView.setContent {
             AppTheme {
                 ConnectScreen(
                     mainViewModel = mainViewModel,
                     showExternalConnectionError = encounteredConnectionError,
+                    oben = oben.value,
                 )
             }
         }

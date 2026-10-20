@@ -11,7 +11,14 @@ import org.jellyfin.mobile.data.entity.ServerEntity
 import org.jellyfin.mobile.data.entity.UserEntity
 import org.jellyfin.sdk.api.client.ApiClient
 import org.jellyfin.sdk.api.client.extensions.itemsApi
+import org.jellyfin.mobile.kinolel.DownloadFortschritt
+import org.jellyfin.mobile.kinolel.DownloadQualitaet
+import org.jellyfin.mobile.kinolel.OfflineSpeicher
+import org.jellyfin.sdk.model.api.BaseItemDto
+import org.jellyfin.sdk.model.api.BaseItemKind
 import org.jellyfin.sdk.model.api.ItemFields
+import org.jellyfin.sdk.model.api.ItemSortBy
+import org.jellyfin.sdk.model.api.LocationType
 import java.util.UUID
 
 class DownloadManager(
@@ -27,6 +34,54 @@ class DownloadManager(
          * split into separate download chunks.
          */
         private const val ITEMS_BATCH = 25
+    }
+
+    private val offlineSpeicher by lazy { OfflineSpeicher(context) }
+
+    /**
+     * KinoLel: Titel für den Download auflösen – Staffel/Serie/Sammlung werden zu ihren Folgen bzw. Filmen (ohne fehlende
+     * Folgen), mit Medienquellen für Größe und Laufzeit (Qualitätsdialog).
+     */
+    suspend fun aufloesen(ids: Collection<UUID>): List<BaseItemDto> = withContext(Dispatchers.IO) {
+        val felder = setOf(ItemFields.MEDIA_SOURCES, ItemFields.PATH)
+        val response by api.itemsApi.getItems(ids = ids.toList(), fields = felder)
+        buildList {
+            for (item in response.items) {
+                when (item.type) {
+                    BaseItemKind.SERIES, BaseItemKind.SEASON, BaseItemKind.BOX_SET, BaseItemKind.FOLDER -> {
+                        val kinder by api.itemsApi.getItems(
+                            parentId = item.id,
+                            recursive = true,
+                            includeItemTypes = setOf(BaseItemKind.EPISODE, BaseItemKind.MOVIE, BaseItemKind.VIDEO, BaseItemKind.MUSIC_VIDEO),
+                            fields = felder,
+                            sortBy = setOf(ItemSortBy.PARENT_INDEX_NUMBER, ItemSortBy.INDEX_NUMBER, ItemSortBy.SORT_NAME),
+                        )
+                        addAll(kinder.items.filter { it.locationType != LocationType.VIRTUAL && !it.mediaSources.isNullOrEmpty() })
+                    }
+                    else -> if (!item.mediaSources.isNullOrEmpty()) add(item)
+                }
+            }
+        }.distinctBy { it.id }
+    }
+
+    /** KinoLel: Qualität und erwartete Größe merken, dann wie gewohnt einreihen */
+    suspend fun enqueueItems(
+        server: ServerEntity,
+        user: UserEntity,
+        items: Collection<BaseItemDto>,
+        qualitaet: DownloadQualitaet,
+    ) {
+        for (item in items) {
+            val groesse = item.mediaSources?.firstOrNull()?.size
+            offlineSpeicher.schreiben(
+                item.id,
+                offlineSpeicher.lesen(item.id).copy(
+                    qualitaet = qualitaet.wert,
+                    erwartet = qualitaet.geschaetzteGroesse(item.runTimeTicks, groesse) ?: 0L,
+                ),
+            )
+        }
+        enqueueItems(server, user, items.map { it.id })
     }
 
     suspend fun enqueueItems(
@@ -69,7 +124,8 @@ class DownloadManager(
                         userId = user.id,
                         itemId = item.id,
                         item = item,
-                        path = item.name ?: item.id.toString(),
+                        // KinoLel: Ordner nach ID statt Name (Folgen wie „Pilot“ gibt es in vielen Serien)
+                        path = item.id.toString(),
                     )
                     downloadDao.insert(downloadEntity)
                 }
@@ -107,6 +163,7 @@ class DownloadManager(
         val download = downloadDao.getDownload(id) ?: return@withContext
 
         downloadDao.delete(id)
+        DownloadFortschritt.entfernen(id)
 
         if (download.status == DownloadStatus.DOWNLOADING) {
             DownloadWorker.restart(context, appPreferences)
@@ -115,6 +172,8 @@ class DownloadManager(
         if (deleteFiles) {
             val storageLocation = storageManager.getStorageLocation()
             storageLocation?.findFile(download.path)?.delete()
+            // KinoLel: Zusatzangaben weg, aber offene Position (offline gesehen) noch melden lassen
+            if (!offlineSpeicher.lesen(download.itemId).syncOffen) offlineSpeicher.entfernen(download.itemId)
         }
     }
 }

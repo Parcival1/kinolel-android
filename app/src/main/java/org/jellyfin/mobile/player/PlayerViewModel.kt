@@ -49,6 +49,9 @@ import org.jellyfin.mobile.player.mediasegments.MediaSegmentRepository
 import org.jellyfin.mobile.player.queue.QueueManager
 import org.jellyfin.mobile.player.source.JellyfinMediaSource
 import org.jellyfin.mobile.player.source.RemoteJellyfinMediaSource
+import org.jellyfin.mobile.player.source.LocalJellyfinMediaSource
+import org.jellyfin.mobile.kinolel.OfflineHelfer
+import org.jellyfin.mobile.kinolel.OfflineSpeicher
 import org.jellyfin.mobile.player.ui.DecoderType
 import org.jellyfin.mobile.player.ui.DisplayPreferences
 import org.jellyfin.mobile.player.ui.PlayState
@@ -330,7 +333,29 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application),
         }
     }
 
+    // KinoLel (Downloads): Position heruntergeladener Titel merken, damit offline Gesehenes später beim Server ankommt
+    private val offlineSpeicher by lazy { OfflineSpeicher(getApplication()) }
+
+    private fun lokalePositionMerken(mediaSource: LocalJellyfinMediaSource, beendet: Boolean) {
+        val player = playerOrNull ?: return
+        val laufzeit = mediaSource.runTime.inWholeMilliseconds
+        val position = if (player.playbackState == Player.STATE_ENDED) laufzeit else player.currentPosition
+        // „Gesehen“ wie bei Jellyfin: Ende erreicht oder mehr als 90 % geschaut
+        val gesehen = beendet && (player.playbackState == Player.STATE_ENDED || (laufzeit > 0 && position >= laufzeit * 9 / 10))
+        offlineSpeicher.positionMerken(mediaSource.itemId, position.milliseconds.inWholeTicks, gesehen)
+    }
+
     private fun startProgressUpdates() {
+        (mediaSourceOrNull as? LocalJellyfinMediaSource)?.let { lokal ->
+            progressUpdateJob?.cancel()
+            progressUpdateJob = viewModelScope.launch {
+                while (true) {
+                    delay(LOKAL_MERKEN_MS)
+                    if (playerOrNull?.isPlaying == true) lokalePositionMerken(lokal, beendet = false)
+                }
+            }
+            return
+        }
         if (mediaSourceOrNull != null && mediaSourceOrNull !is RemoteJellyfinMediaSource) return
         progressUpdateJob = viewModelScope.launch {
             while (true) {
@@ -476,6 +501,11 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application),
     }
 
     private fun reportPlaybackStop() {
+        (mediaSourceOrNull as? LocalJellyfinMediaSource)?.let { lokal ->
+            lokalePositionMerken(lokal, beendet = true)
+            CoroutineScope(Dispatchers.IO).launch { OfflineHelfer.nachmelden(apiClient, offlineSpeicher) }
+            return
+        }
         val mediaSource = mediaSourceOrNull as? RemoteJellyfinMediaSource ?: return
         val player = playerOrNull ?: return
         val hasFinished = player.playbackState == Player.STATE_ENDED
@@ -821,3 +851,6 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application),
         playerMenuHelper = menuHelper
     }
 }
+
+// KinoLel: Position heruntergeladener Titel alle 10 s merken
+private const val LOKAL_MERKEN_MS = 10_000L

@@ -18,6 +18,12 @@ import kotlinx.serialization.json.put
 import org.jellyfin.mobile.BuildConfig
 import org.jellyfin.mobile.events.ActivityEvent
 import org.jellyfin.mobile.events.ActivityEventHandler
+import org.jellyfin.mobile.data.dao.DownloadDao
+import org.jellyfin.mobile.downloads.DownloadStatus
+import org.jellyfin.mobile.kinolel.DownloadFortschritt
+import org.jellyfin.sdk.model.serializer.toUUIDOrNull
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
 import org.jellyfin.mobile.player.deviceprofile.DeviceProfileBuilder
 import org.jellyfin.mobile.utils.Constants
 import org.jellyfin.mobile.utils.Constants.EXTRA_ALBUM
@@ -167,6 +173,45 @@ class NativeInterface(private val context: Context) : KoinComponent {
     fun openDownloadManager() {
         emitEvent(ActivityEvent.OpenDownloads)
     }
+
+    /**
+     * KinoLel: Download-Status für die Knöpfe in der Weboberfläche (native/kinolelDownloads.js).
+     * Eingabe: JSON-Liste von Item-IDs. Ausgabe: {"<id>": {"s": "fertig|laedt|wartet|fehler", "p": Prozent oder -1}}
+     * Nicht heruntergeladene Titel fehlen in der Antwort.
+     */
+    @JavascriptInterface
+    fun kinolelDownloadStatus(args: String): String = try {
+        val ids = Json.parseToJsonElement(args).jsonArray.mapNotNull { it.jsonPrimitive.contentOrNull?.toUUIDOrNull() }
+        val downloadDao: DownloadDao = get()
+        val downloads = runBlocking(Dispatchers.IO) { downloadDao.getDownloadsByItemIds(ids) }
+        val staende = DownloadFortschritt.staende.value
+        buildJsonObject {
+            for (download in downloads) {
+                put(
+                    download.itemId.toString().replace("-", ""),
+                    buildJsonObject {
+                        put(
+                            "s",
+                            when (download.status) {
+                                DownloadStatus.DOWNLOADED -> "fertig"
+                                DownloadStatus.DOWNLOADING -> "laedt"
+                                DownloadStatus.QUEUED -> "wartet"
+                                DownloadStatus.ERROR, DownloadStatus.CANCELLED -> "fehler"
+                            },
+                        )
+                        put("p", staende[download.id]?.prozent ?: -1)
+                    },
+                )
+            }
+        }.toString()
+    } catch (e: Exception) {
+        Timber.w(e, "KinoLel: Download-Status")
+        "{}"
+    }
+
+    /** KinoLel: "alle" = jedes Konto darf in der App herunterladen, "recht" = nur mit Jellyfin-Recht „Herunterladen“ */
+    @JavascriptInterface
+    fun kinolelDownloadsErlaubt(): String = if (BuildConfig.DOWNLOADS_NUR_MIT_RECHT) "recht" else "alle"
 
     @JavascriptInterface
     fun openClientSettings() {

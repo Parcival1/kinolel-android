@@ -14,6 +14,11 @@ import androidx.compose.material.Button
 import androidx.compose.material.ButtonDefaults
 import androidx.compose.material.CircularProgressIndicator
 import androidx.compose.material.Text
+import androidx.compose.material.TextButton
+import androidx.compose.ui.platform.LocalContext
+import android.content.Context
+import android.net.ConnectivityManager
+import androidx.core.content.getSystemService
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -45,13 +50,27 @@ import org.koin.compose.koinInject
 fun FesterServer(
     showExternalConnectionError: Boolean,
     connectionHelper: ConnectionHelper = koinInject(),
+    oben: Boolean = true,
+    fertigeDownloads: Int = 0,
+    onDownloads: () -> Unit = {},
     onConnected: suspend (String) -> Unit,
 ) {
     var versuch by remember { mutableIntStateOf(0) }
     var nichtErreichbar by remember { mutableStateOf(false) }
     var hinweis by remember { mutableStateOf(false) }
+    val context = LocalContext.current
 
-    LaunchedEffect(versuch) {
+    // KinoLel (Downloads): ganz ohne Netz wie bei Netflix gleich die Downloads zeigen – einmal je App-Start
+    LaunchedEffect(nichtErreichbar, fertigeDownloads) {
+        if (nichtErreichbar && fertigeDownloads > 0 && !OfflineStart.geoeffnet && !netzVorhanden(context)) {
+            OfflineStart.geoeffnet = true
+            onDownloads()
+        }
+    }
+
+    LaunchedEffect(versuch, oben) {
+        // KinoLel: Liegen Downloads/Player darüber, nicht wechseln (würde eine Offline-Wiedergabe unterbrechen)
+        if (!oben) return@LaunchedEffect
         // Nach einem Abbruch in der Weboberfläche kurz warten, damit es keine schnelle Schleife gibt
         if (showExternalConnectionError && versuch == 0) delay(ABBRUCH_PAUSE_MS)
         val state = connectionHelper.checkServerUrl(BuildConfig.SERVER_URL)
@@ -106,12 +125,35 @@ fun FesterServer(
                         color = KINOLEL_TEXT,
                         textAlign = TextAlign.Center,
                     )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Button(
-                        onClick = { versuch++ },
-                        colors = ButtonDefaults.buttonColors(backgroundColor = KINOLEL_LAVENDEL, contentColor = KINOLEL_GRUND),
-                    ) {
-                        Text(text = stringResource(R.string.kinolel_nochmal))
+                    if (fertigeDownloads > 0) {
+                        // KinoLel: offline zuerst die Downloads anbieten
+                        Text(
+                            text = stringResource(R.string.kinolel_offline_hinweis),
+                            color = KINOLEL_TEXT,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(top = 12.dp),
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Button(
+                            onClick = onDownloads,
+                            colors = ButtonDefaults.buttonColors(backgroundColor = KINOLEL_LAVENDEL, contentColor = KINOLEL_GRUND),
+                        ) {
+                            Text(text = stringResource(R.string.kinolel_offline_downloads, fertigeDownloads))
+                        }
+                        TextButton(onClick = { versuch++ }) {
+                            Text(text = stringResource(R.string.kinolel_nochmal), color = KINOLEL_LAVENDEL)
+                        }
+                    } else {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Button(
+                            onClick = { versuch++ },
+                            colors = ButtonDefaults.buttonColors(backgroundColor = KINOLEL_LAVENDEL, contentColor = KINOLEL_GRUND),
+                        ) {
+                            Text(text = stringResource(R.string.kinolel_nochmal))
+                        }
+                        TextButton(onClick = onDownloads) {
+                            Text(text = stringResource(R.string.view_downloads), color = KINOLEL_LAVENDEL)
+                        }
                     }
                 }
                 hinweis -> Text(
@@ -131,3 +173,13 @@ private const val HINWEIS_NACH_MS = 3_000L
 internal val KINOLEL_LAVENDEL = Color(0xFF9AA4FF)
 internal val KINOLEL_GRUND = Color(0xFF0B0F18)
 internal val KINOLEL_TEXT = Color(0xBFFFFFFF)
+
+/** KinoLel: Downloads beim Offline-Start nur einmal automatisch öffnen */
+internal object OfflineStart {
+    var geoeffnet = false
+}
+
+private fun netzVorhanden(context: Context): Boolean {
+    val cm = context.getSystemService<ConnectivityManager>() ?: return true
+    return cm.activeNetwork != null
+}

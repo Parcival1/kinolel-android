@@ -7,6 +7,12 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.Column
+import androidx.compose.material.Icon
+import androidx.compose.material.IconButton
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.runtime.collectAsState
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
@@ -40,6 +46,9 @@ import org.jellyfin.mobile.data.entity.DownloadEntity
 import org.jellyfin.mobile.data.entity.DownloadFiles
 import org.jellyfin.mobile.downloads.DownloadFileType
 import org.jellyfin.mobile.downloads.DownloadStatus
+import org.jellyfin.mobile.kinolel.DownloadFortschritt
+import org.jellyfin.mobile.kinolel.DownloadQualitaet
+import org.jellyfin.mobile.kinolel.OfflineSpeicher
 import org.koin.compose.koinInject
 
 @Composable
@@ -48,6 +57,7 @@ fun DownloadsList(
     onOpen: (DownloadEntity) -> Unit,
     onDownload: (DownloadEntity) -> Unit,
     modifier: Modifier = Modifier,
+    onDelete: (DownloadEntity) -> Unit = {},
     contentPadding: PaddingValues = PaddingValues.Zero,
     selection: Set<Long> = emptySet(),
     onToggleSelection: (DownloadEntity) -> Unit = {},
@@ -66,6 +76,7 @@ fun DownloadsList(
                 downloadFiles = downloadFiles,
                 onOpen = { onOpen(downloadFiles.download) },
                 onDownload = { onDownload(downloadFiles.download) },
+                onDelete = { onDelete(downloadFiles.download) },
                 onToggleSelection = { onToggleSelection(downloadFiles.download) },
                 isSelected = selection.contains(downloadFiles.download.id),
                 selectionMode = selectionMode,
@@ -82,12 +93,19 @@ fun DownloadItem(
     onDownload: () -> Unit,
     onToggleSelection: () -> Unit,
     modifier: Modifier = Modifier,
+    onDelete: () -> Unit = {},
     isSelected: Boolean = false,
     selectionMode: Boolean = false,
 ) {
     val (download, files) = downloadFiles
     val context = LocalContext.current
     val storageManager: StorageManager = koinInject()
+
+    // KinoLel: Live-Fortschritt und Qualität
+    val staende by DownloadFortschritt.staende.collectAsState()
+    val stand = staende[download.id]
+    val offlineSpeicher = remember(context) { OfflineSpeicher(context) }
+    val qualitaet = remember(download.itemId) { DownloadQualitaet.von(offlineSpeicher.lesen(download.itemId).qualitaet) }
 
     val isVerified by produceState(initialValue = false, downloadFiles) {
         value = withContext(Dispatchers.IO) {
@@ -147,16 +165,40 @@ fun DownloadItem(
             }
         },
         secondaryText = {
-            if (download.status == DownloadStatus.DOWNLOADING || download.status == DownloadStatus.QUEUED) {
-                LinearProgressIndicator()
-            } else if (isVerified) {
-                Text(
-                    text = Formatter.formatShortFileSize(context, files.sumOf { it.size }),
+            when {
+                download.status == DownloadStatus.DOWNLOADING && stand != null -> Column {
+                    if (stand.prozent >= 0) {
+                        LinearProgressIndicator(progress = stand.prozent / 100f)
+                    } else {
+                        LinearProgressIndicator()
+                    }
+                    Text(
+                        text = buildString {
+                            append(Formatter.formatShortFileSize(context, stand.geladen))
+                            if (stand.gesamt > 0) {
+                                append(" / ").append(if (qualitaet.umgewandelt) "~" else "")
+                                append(Formatter.formatShortFileSize(context, stand.gesamt))
+                                append(" · ").append(stand.prozent).append(" %")
+                            }
+                        },
+                        maxLines = 1,
+                    )
+                }
+                download.status == DownloadStatus.DOWNLOADING || download.status == DownloadStatus.QUEUED -> Column {
+                    LinearProgressIndicator()
+                    Text(text = stringResource(R.string.kinolel_dl_wartet), maxLines = 1)
+                }
+                download.status == DownloadStatus.ERROR -> Text(
+                    text = stringResource(R.string.kinolel_dl_fehler),
+                    color = Color.Yellow,
+                    maxLines = 2,
+                )
+                isVerified -> Text(
+                    text = qualitaetsName(qualitaet) + " · " + Formatter.formatShortFileSize(context, files.sumOf { it.size }),
                     overflow = TextOverflow.Ellipsis,
                     maxLines = 1,
                 )
-            } else {
-                Text(
+                else -> Text(
                     text = stringResource(R.string.download_incomplete),
                     color = Color.Yellow,
                     overflow = TextOverflow.Ellipsis,
@@ -164,6 +206,23 @@ fun DownloadItem(
                 )
             }
         },
+        trailing = {
+            if (!selectionMode) {
+                IconButton(onClick = onDelete) {
+                    Icon(imageVector = Icons.Outlined.Delete, contentDescription = stringResource(R.string.kinolel_dl_loeschen))
+                }
+            }
+        },
         singleLineSecondaryText = true,
     )
 }
+
+@Composable
+private fun qualitaetsName(q: DownloadQualitaet): String = stringResource(
+    when (q) {
+        DownloadQualitaet.ORIGINAL -> R.string.kinolel_dl_q_original
+        DownloadQualitaet.HOCH -> R.string.kinolel_dl_q_hoch
+        DownloadQualitaet.MITTEL -> R.string.kinolel_dl_q_mittel
+        DownloadQualitaet.KLEIN -> R.string.kinolel_dl_q_klein
+    },
+)

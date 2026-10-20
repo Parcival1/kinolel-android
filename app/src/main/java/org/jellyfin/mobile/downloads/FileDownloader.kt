@@ -79,7 +79,8 @@ class FileDownloader(
     }
 
     private fun Response.getContentRange() = when (code) {
-        200 -> requireNotNull(header("Content-Length")).let(ContentRange::fromContentLengthHeader)
+        // KinoLel: Bei Umwandlung durch den Server (fortlaufender Datenstrom) fehlt die Länge -> Gesamtgröße unbekannt (0)
+        200 -> header("Content-Length")?.let(ContentRange::fromContentLengthHeader) ?: ContentRange(0, 0, 0)
         206, 416 -> requireNotNull(header("Content-Range")).let(ContentRange::fromContentRangeHeader)
         else -> error("Invalid response code $code")
     }
@@ -117,8 +118,10 @@ class FileDownloader(
         from: Uri,
         to: ParcelFileDescriptor,
         progressCallback: ProgressCallback = ProgressCallback.Empty,
+        fortsetzbar: Boolean = true,
     ) {
-        val rangeStart = to.statSize
+        // KinoLel: nicht fortsetzbare Downloads (Umwandlung, Untertitel) immer von vorn, ohne Range
+        val rangeStart = if (fortsetzbar) to.statSize else null
         val response = download(api, from, rangeStart)
         save(response, to, progressCallback)
     }

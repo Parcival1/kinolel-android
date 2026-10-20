@@ -51,4 +51,8 @@ interface DownloadDao {
 
     @Update(onConflict = OnConflictStrategy.REPLACE)
     suspend fun updateFile(entity: DownloadFileEntity): Int
+
+    // KinoLel: einzelne Datei (z. B. fehlgeschlagener Untertitel) entfernen
+    @Query("DELETE FROM download_file WHERE id = :id")
+    suspend fun deleteFile(id: Long)
 }

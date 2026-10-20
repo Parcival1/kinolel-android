@@ -9,6 +9,7 @@ import androidx.documentfile.provider.DocumentFile
 import org.jellyfin.mobile.R
 import org.jellyfin.mobile.data.entity.DownloadFiles
 import org.jellyfin.mobile.downloads.DownloadStatus
+import org.jellyfin.mobile.kinolel.OfflineHelfer
 import timber.log.Timber
 
 class StorageManager(
@@ -18,9 +19,9 @@ class StorageManager(
     val defaultStorageLocation
         get() = Environment.getExternalStorageDirectory().resolve(context.getString(R.string.app_name_short)).toUri()
 
-    fun getStorageLocation() = appPreferences.storageLocation?.toUri()?.let {
-        DocumentFile.fromTreeUri(context, it)
-    }
+    // KinoLel (Lel 20.10.2026, Downloads wie bei Netflix): immer im geschützten App-Speicher – keine Ordnerwahl, Dateien
+    // nicht in Galerie/Dateimanager sichtbar und beim Deinstallieren weg. Eine früher gewählte Ordner-Einstellung gilt nicht.
+    fun getStorageLocation(): DocumentFile? = DocumentFile.fromFile(OfflineHelfer.downloadOrdner(context))
 
     fun isStorageLocationAccessible(): Boolean {
         val documentFile = getStorageLocation()
@@ -48,10 +49,7 @@ class StorageManager(
 
         for (file in download.files) {
             if (file.status != DownloadStatus.DOWNLOADED) return false
-            val documentFile = DocumentFile.fromSingleUri(context, file.uri)
-            if (documentFile == null || !documentFile.exists() || documentFile.length() != file.size) {
-                return false
-            }
+            if (OfflineHelfer.laenge(context, file.uri) != file.size) return false
         }
 
         return true
