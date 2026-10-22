@@ -189,7 +189,10 @@ def abspielen_offline(name_muster, bildname):
     bild(bildname)
     # Läuft die Wiedergabe? Position in der Mediensitzung muss nach 3 s weitergelaufen sein
     def position():
-        m = re.search(r'state=PlaybackState \{state=(\d+), position=(\d+)', sh('dumpsys media_session'))
+        # Format: "package=de.kinolel.app" ... "state=PlaybackState {state=PLAYING(3), position=12345, ..."
+        text = sh('dumpsys media_session')
+        i = text.find('package=' + PAKET)
+        m = re.search(r'state=PlaybackState \{state=\w*\(?(\d+)\)?, position=(\d+)', text[i:]) if i >= 0 else None
         return (int(m.group(1)), int(m.group(2))) if m else (0, 0)
     z1, p1 = position()
     time.sleep(3)
