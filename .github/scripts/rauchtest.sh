@@ -18,11 +18,10 @@ systemdialog_weg() {
 }
 
 # 1. Vorversion (letztes Release) installieren und einmal starten
-VOR=$(curl -s ${GH_TOKEN:+-H "Authorization: Bearer $GH_TOKEN"} https://api.github.com/repos/Parcival1/kinolel-android/releases | python3 -c '
-import json,sys
-for r in json.load(sys.stdin):
-    for a in r.get("assets", []):
-        if a["name"].endswith(".apk"): print(a["browser_download_url"]); sys.exit()')
+# Vorversion = neuestes Release, das NICHT die gerade gebaute Version ist (beim Tag-Lauf ist sie schon veröffentlicht).
+# Über gh mit Build-Token (die GitHub-API ohne Anmeldung liefert im Runner oft nichts).
+AKTUELL=$(sed -n "s/^VERSION=//p" marke.properties)
+VOR=$(gh api "repos/Parcival1/kinolel-android/releases?per_page=20" --jq "[.[] | select(.draft | not) | select(.tag_name != \"v$AKTUELL\") | .assets[] | select(.name | endswith(\".apk\")) | .browser_download_url][0] // empty" 2>rauchtest/gh-fehler.txt || true)
 echo "Vorversion: $VOR"
 if [ -n "$VOR" ] && curl -sSL -o vorversion.apk "$VOR"; then
   adb install vorversion.apk
