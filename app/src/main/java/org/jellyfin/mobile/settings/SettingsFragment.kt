@@ -9,6 +9,7 @@ import android.view.ViewGroup
 import android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.Fragment
+import androidx.appcompat.app.AppCompatActivity
 import de.Maxr1998.modernpreferences.Preference
 import de.Maxr1998.modernpreferences.PreferencesAdapter
 import de.Maxr1998.modernpreferences.helpers.categoryHeader
@@ -23,6 +24,8 @@ import de.Maxr1998.modernpreferences.helpers.singleChoice
 import de.Maxr1998.modernpreferences.preferences.CheckBoxPreference
 import de.Maxr1998.modernpreferences.preferences.choice.SelectionItem
 import org.jellyfin.mobile.R
+import org.jellyfin.mobile.kinolel.Aktualisierung
+import org.jellyfin.mobile.BuildConfig
 import org.jellyfin.mobile.app.AppPreferences
 import org.jellyfin.mobile.app.StorageManager
 import org.jellyfin.mobile.databinding.FragmentSettingsBinding
@@ -284,11 +287,25 @@ class SettingsFragment : Fragment(), BackPressInterceptor {
             titleRes = R.string.pref_download_location
             summaryRes = R.string.kinolel_dl_speicherort
         }
+
+        // KinoLel (Lel 22.10.2026): von Hand nach Updates suchen (sonst bei jedem Öffnen der App)
+        categoryHeader(PREF_CATEGORY_KINOLEL) {
+            title = BuildConfig.APP_NAME
+        }
+        pref(PREF_KINOLEL_UPDATE) {
+            titleRes = R.string.dialog_button_check_for_updates
+            summary = getString(R.string.kinolel_update_suchen_info, BuildConfig.VERSION_NAME)
+            defaultOnClick {
+                (activity as? AppCompatActivity)?.let { Aktualisierung.pruefen(it, vonHand = true) }
+            }
+        }
     }
 
     companion object {
         const val PREF_CATEGORY_MUSIC_PLAYER = "pref_category_music"
         const val PREF_CATEGORY_VIDEO_PLAYER = "pref_category_video"
         const val PREF_CATEGORY_DOWNLOADS = "pref_category_downloads"
+        const val PREF_CATEGORY_KINOLEL = "pref_category_kinolel"
+        const val PREF_KINOLEL_UPDATE = "pref_kinolel_update"
     }
 }

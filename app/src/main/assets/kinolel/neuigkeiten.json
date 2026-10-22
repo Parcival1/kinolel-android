@@ -1,6 +1,18 @@
 {
   "versionen": [
     {
+      "version": "0.1.7",
+      "de": [
+        "KinoLel sucht jetzt bei jedem Öffnen nach einer neuen Version. Von Hand geht es unter Einstellungen → „Nach Updates suchen“. Tippst du auf „Später“, fragt die App erst nach ein paar Stunden wieder."
+      ],
+      "hu": [
+        "A KinoLel mostantól minden megnyitáskor keres új verziót. Kézzel: Beállítások → „Frissítések keresése”. Ha a „Később” gombra koppintasz, az app csak néhány óra múlva kérdez újra."
+      ],
+      "en": [
+        "KinoLel now checks for a new version every time you open it. To check yourself: Settings → “Check for updates”. If you tap “Later”, the app asks again only after a few hours."
+      ]
+    },
+    {
       "version": "0.1.6",
       "de": [
         "Meldungen und Fragen der App (wie diese hier) erscheinen jetzt im KinoLel-Design: dunkel, mit lila Knopf und der Schrift der Weboberfläche.",

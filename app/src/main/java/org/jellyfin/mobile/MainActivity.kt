@@ -164,16 +164,16 @@ class MainActivity : AppCompatActivity() {
         // Setup Chromecast
         chromecast.initializePlugin(this)
 
-        // KinoLel: nach neuer Version suchen (GitHub-Releases)
         // KinoLel: einmal nach einem Update zeigen, was neu ist (vor der Update-Prüfung)
         Neuigkeiten.zeigenFallsNeu(this)
-        Aktualisierung.pruefen(this)
     }
 
     override fun onResume() {
         super.onResume()
         // KinoLel: Update fortsetzen, nachdem „Unbekannte Apps installieren“ erlaubt wurde
         Aktualisierung.fortsetzen(this)
+        // KinoLel (Lel 22.10.2026): bei jedem Öffnen/Zurückkehren nach Updates suchen
+        Aktualisierung.pruefen(this)
     }
 
     override fun onStart() {

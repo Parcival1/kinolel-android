@@ -38,4 +38,7 @@
     <string name="kinolel_neu_titel">Újdonságok – %1$s %2$s</string>
     <string name="kinolel_neu_version">%1$s. verzió</string>
     <string name="kinolel_neu_ok">Rendben</string>
+    <string name="kinolel_update_aktuell">A(z) %1$s naprakész (%2$s. verzió).</string>
+    <string name="kinolel_update_keine_verbindung">A frissítések keresése most nem lehetséges – nincs kapcsolat.</string>
+    <string name="kinolel_update_suchen_info">%1$s. verzió – koppints a frissítések kereséséhez</string>
 </resources>

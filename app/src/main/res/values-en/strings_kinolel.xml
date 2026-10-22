@@ -39,4 +39,7 @@
     <string name="kinolel_neu_titel">New in %1$s %2$s</string>
     <string name="kinolel_neu_version">Version %1$s</string>
     <string name="kinolel_neu_ok">Got it</string>
+    <string name="kinolel_update_aktuell">%1$s is up to date (version %2$s).</string>
+    <string name="kinolel_update_keine_verbindung">Can't check for updates right now – no connection.</string>
+    <string name="kinolel_update_suchen_info">Version %1$s – tap to check for updates</string>
 </resources>
