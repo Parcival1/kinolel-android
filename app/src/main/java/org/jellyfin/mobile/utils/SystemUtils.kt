@@ -16,6 +16,7 @@ import android.provider.Settings.System.ACCELEROMETER_ROTATION
 import androidx.coordinatorlayout.widget.CoordinatorLayout
 import androidx.core.content.getSystemService
 import com.google.android.material.snackbar.Snackbar
+import org.jellyfin.mobile.kinolel.kinolelGestalten
 import kotlinx.coroutines.suspendCancellableCoroutine
 import org.jellyfin.mobile.BuildConfig
 import org.jellyfin.mobile.MainActivity
@@ -48,6 +49,7 @@ fun WebViewFragment.requestNoBatteryOptimizations(rootView: CoordinatorLayout) {
                 // Ignore after the user interacted with the snackbar at least once
                 appPreferences.ignoreBatteryOptimizations = true
             }
+            kinolelGestalten()
             show()
         }
     }
