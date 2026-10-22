@@ -1,10 +1,28 @@
 {
   "versionen": [
     {
+      "version": "0.1.6",
+      "de": [
+        "Die Frage „Download entfernen“ in der Download-Liste ist jetzt gut lesbar (vorher dunkle Schrift auf dunklem Grund)."
+      ],
+      "hu": [
+        "A Letöltések listában a „Letöltés eltávolítása” kérdés most jól olvasható (korábban sötét betű volt sötét háttéren)."
+      ],
+      "en": [
+        "The “Remove download” question in the downloads list is now easy to read (before: dark text on a dark background)."
+      ]
+    },
+    {
       "version": "0.1.5",
-      "de": ["Nach jedem Update zeigt KinoLel jetzt einmal kurz, was neu ist – so wie hier."],
-      "hu": ["Minden frissítés után a KinoLel egyszer röviden megmutatja, mi az újdonság – mint most."],
-      "en": ["After every update, KinoLel now briefly shows once what's new – just like this."]
+      "de": [
+        "Nach jedem Update zeigt KinoLel jetzt einmal kurz, was neu ist – so wie hier."
+      ],
+      "hu": [
+        "Minden frissítés után a KinoLel egyszer röviden megmutatja, mi az újdonság – mint most."
+      ],
+      "en": [
+        "After every update, KinoLel now briefly shows once what's new – just like this."
+      ]
     },
     {
       "version": "0.1.4",

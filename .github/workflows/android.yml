@@ -54,6 +54,9 @@ jobs:
           SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
         run: ./gradlew assembleProprietaryRelease
 
+      - name: Unit-Tests (u. a. lesbare Dialoge)
+        run: ./gradlew testProprietaryReleaseUnitTest
+
       - name: APK umbenennen + Signatur prüfen
         run: |
           mkdir -p build/kinolel
