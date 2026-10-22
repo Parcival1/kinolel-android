@@ -28,11 +28,11 @@ adb shell pm grant "$PAKET" android.permission.POST_NOTIFICATIONS || true
 adb logcat -c
 adb shell am start -W -n "$PAKET/org.jellyfin.mobile.MainActivity"
 sleep 6; adb exec-out screencap -p > rauchtest/00-neuigkeiten.png
-if ui | grep -q "Neu in "; then echo "NEUIGKEITEN: nach Update gezeigt" | tee rauchtest/neuigkeiten.txt; else echo "NEUIGKEITEN: FEHLT nach Update" | tee rauchtest/neuigkeiten.txt; fi
+if ui | grep -qE "Neu in |New in |Újdonságok"; then echo "NEUIGKEITEN: nach Update gezeigt" | tee rauchtest/neuigkeiten.txt; else echo "NEUIGKEITEN: FEHLT nach Update" | tee rauchtest/neuigkeiten.txt; fi
 adb shell am force-stop "$PAKET"
 adb shell am start -W -n "$PAKET/org.jellyfin.mobile.MainActivity"
 sleep 6
-if ui | grep -q "Neu in "; then echo "NEUIGKEITEN: FEHLER – beim zweiten Start erneut gezeigt" | tee -a rauchtest/neuigkeiten.txt; else echo "NEUIGKEITEN: zweiter Start ohne Meldung (richtig)" | tee -a rauchtest/neuigkeiten.txt; fi
+if ui | grep -qE "Neu in |New in |Újdonságok"; then echo "NEUIGKEITEN: FEHLER – beim zweiten Start erneut gezeigt" | tee -a rauchtest/neuigkeiten.txt; else echo "NEUIGKEITEN: zweiter Start ohne Meldung (richtig)" | tee -a rauchtest/neuigkeiten.txt; fi
 
 # 3. Bisheriger Rauchtest: Start, Anmeldung, Ungarisch
 adb shell am force-stop "$PAKET"
