@@ -55,7 +55,7 @@ jobs:
         run: ./gradlew assembleProprietaryRelease
 
       - name: Unit-Tests (u. a. lesbare Dialoge)
-        run: ./gradlew testProprietaryReleaseUnitTest
+        run: ./gradlew testProprietaryDebugUnitTest
 
       - name: APK umbenennen + Signatur prüfen
         run: |
