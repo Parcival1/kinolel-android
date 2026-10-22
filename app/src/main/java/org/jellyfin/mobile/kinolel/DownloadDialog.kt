@@ -12,6 +12,8 @@ import android.widget.RadioGroup
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
+import androidx.core.content.res.ResourcesCompat
+import androidx.appcompat.view.ContextThemeWrapper
 import androidx.core.content.getSystemService
 import kotlinx.coroutines.suspendCancellableCoroutine
 import org.jellyfin.mobile.MainActivity
@@ -101,11 +103,16 @@ private suspend fun MainActivity.qualitaetWaehlen(titel: List<BaseItemDto>, appP
         ?: angebot.lastOrNull { (groessen[it] ?: 0L) < frei }
 
     val dp = { wert: Int -> TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, wert.toFloat(), resources.displayMetrics).toInt() }
-    val gruppe = RadioGroup(this)
+    // Ansichten im KinoLel-Dialogthema (Schrift Inter, weiß, Lavendel) – wie der Dialog selbst
+    val dialogKontext = ContextThemeWrapper(this, R.style.KinoLel_Dialog)
+    val schrift = ResourcesCompat.getFont(dialogKontext, R.font.inter_regular)
+    val gruppe = RadioGroup(dialogKontext)
     val knoepfe = angebot.associateWith { q ->
         val groesse = groessen[q] ?: 0L
-        RadioButton(this).apply {
+        RadioButton(dialogKontext).apply {
             id = 1000 + q.wert
+            typeface = schrift
+            textSize = 16f
             val zuGross = groesse >= frei
             text = buildString {
                 append(bezeichnung(context, q))
@@ -119,7 +126,7 @@ private suspend fun MainActivity.qualitaetWaehlen(titel: List<BaseItemDto>, appP
     }
     vorwahl?.let { knoepfe[it]?.isChecked = true }
 
-    val inhalt = LinearLayout(this).apply {
+    val inhalt = LinearLayout(dialogKontext).apply {
         orientation = LinearLayout.VERTICAL
         setPadding(dp(24), dp(8), dp(24), 0)
         addView(gruppe)

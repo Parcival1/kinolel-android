@@ -3,12 +3,15 @@
     {
       "version": "0.1.6",
       "de": [
+        "Meldungen und Fragen der App (wie diese hier) erscheinen jetzt im KinoLel-Design: dunkel, mit lila Knopf und der Schrift der Weboberfläche.",
         "Die Frage „Download entfernen“ in der Download-Liste ist jetzt gut lesbar (vorher dunkle Schrift auf dunklem Grund)."
       ],
       "hu": [
+        "Az app üzenetei és kérdései (mint ez is) most KinoLel-stílusban jelennek meg: sötéten, lila gombbal és a webes felület betűtípusával.",
         "A Letöltések listában a „Letöltés eltávolítása” kérdés most jól olvasható (korábban sötét betű volt sötét háttéren)."
       ],
       "en": [
+        "The app's messages and questions (like this one) now appear in the KinoLel design: dark, with a purple button and the web interface's font.",
         "The “Remove download” question in the downloads list is now easy to read (before: dark text on a dark background)."
       ]
     },

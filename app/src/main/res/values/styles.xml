@@ -1,6 +1,8 @@
 <resources>
     <!-- Application theme -->
     <style name="AppTheme.V21" parent="Theme.AppCompat.NoActionBar">
+        <!-- KinoLel: Dialoge im Design der Weboberfläche (values/kinolel_dialog.xml) -->
+        <item name="alertDialogTheme">@style/KinoLel.Dialog</item>
         <item name="colorPrimary">@color/jellyfin_primary</item>
         <item name="colorPrimaryDark">@color/jellyfin_primary_dark</item>
         <item name="colorAccent">@color/jellyfin_accent</item>

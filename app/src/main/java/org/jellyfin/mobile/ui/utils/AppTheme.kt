@@ -3,11 +3,16 @@ package org.jellyfin.mobile.ui.utils
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Shapes
+import androidx.compose.material.Typography
 import androidx.compose.material.darkColors
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import org.jellyfin.mobile.R
 
 /** KinoLel-Farben – eigene Funktion, damit AppThemeTest prüfen kann, dass Text auf Dialogen (surface) hell bleibt */
 @Suppress("MagicNumber")
@@ -27,11 +32,19 @@ fun kinolelFarben() =
         onError = Color.White,
     )
 
+/** Schrift der Weboberfläche (Inter, res/font) */
+val KinoLelSchrift = FontFamily(Font(R.font.inter_regular, FontWeight.Normal), Font(R.font.inter_semibold, FontWeight.SemiBold))
+
+/** Dialoge wie die Menüs der Weboberfläche (Lel 22.10.2026) */
+val KinoLelDialogGrund = Color(0xFF1B1D2A)
+val KinoLelDialogRand = Color(0x14FFFFFF)
+
 @Composable
 fun AppTheme(content: @Composable () -> Unit) {
     val colors = remember { kinolelFarben() }
     MaterialTheme(
         colors = colors,
+        typography = Typography(defaultFontFamily = KinoLelSchrift),
         shapes = Shapes(
             small = RoundedCornerShape(4.dp),
             medium = RoundedCornerShape(8.dp),

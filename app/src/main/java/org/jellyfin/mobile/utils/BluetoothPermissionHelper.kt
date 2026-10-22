@@ -1,7 +1,7 @@
 package org.jellyfin.mobile.utils
 
 import android.Manifest.permission.BLUETOOTH_CONNECT
-import android.app.AlertDialog
+import androidx.appcompat.app.AlertDialog
 import android.content.pm.PackageManager
 import android.content.pm.PackageManager.PERMISSION_GRANTED
 import kotlinx.coroutines.suspendCancellableCoroutine
