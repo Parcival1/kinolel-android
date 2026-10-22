@@ -6,6 +6,16 @@ mkdir -p rauchtest
 APK=$(ls apk/*.apk | head -1)
 PAKET=$(grep '^APPLICATION_ID=' marke.properties | cut -d= -f2)
 ui() { adb exec-out uiautomator dump /dev/tty 2>/dev/null; }
+# Emulator-Systemmeldung „… isn't responding“ (z. B. Pixel Launcher nach dem Update) verdeckt sonst die Meldung der App
+systemdialog_weg() {
+  for _ in 1 2 3; do
+    xml=$(ui)
+    echo "$xml" | grep -qE "isn't responding|reagiert nicht" || return 0
+    punkt=$(echo "$xml" | python3 -c 'import re,sys; m=re.search(r"text=\"(Wait|Warten)\"[^>]*bounds=\"\[(\d+),(\d+)\]\[(\d+),(\d+)\]\"", sys.stdin.read()); print("%d %d" % ((int(m[2])+int(m[4]))//2, (int(m[3])+int(m[5]))//2) if m else "")')
+    [ -n "$punkt" ] && adb shell input tap $punkt
+    sleep 2
+  done
+}
 
 # 1. Vorversion (letztes Release) installieren und einmal starten
 VOR=$(curl -s https://api.github.com/repos/Parcival1/kinolel-android/releases | python3 -c '
@@ -27,7 +37,7 @@ adb install -r "$APK"
 adb shell pm grant "$PAKET" android.permission.POST_NOTIFICATIONS || true
 adb logcat -c
 adb shell am start -W -n "$PAKET/org.jellyfin.mobile.MainActivity"
-sleep 6; adb exec-out screencap -p > rauchtest/00-neuigkeiten.png
+sleep 6; systemdialog_weg; adb exec-out screencap -p > rauchtest/00-neuigkeiten.png
 if ui | grep -qE "Neu in |New in |Újdonságok"; then echo "NEUIGKEITEN: nach Update gezeigt" | tee rauchtest/neuigkeiten.txt; else echo "NEUIGKEITEN: FEHLT nach Update" | tee rauchtest/neuigkeiten.txt; fi
 adb shell am force-stop "$PAKET"
 adb shell am start -W -n "$PAKET/org.jellyfin.mobile.MainActivity"
