@@ -24,6 +24,8 @@ AUS = sys.argv[1] if len(sys.argv) > 1 else 'downloadtest'
 PAKET = os.environ.get('PAKET', 'de.kinolel.app')
 BENUTZER = os.environ.get('KINOLEL_TEST_USER', 'kinolel-hilfe')
 PW = (os.environ.get('KINOLEL_TEST_PW') or '').strip('\r\n')
+if not PW and os.environ.get('KINOLEL_TEST_PW_STDIN'):   # VM 140: Passwort per Pipe, nicht in der Prozessliste
+    PW = sys.stdin.readline().strip('\r\n')
 SERIAL = os.environ.get('ADB_SERIAL')
 TITEL_A = os.environ.get('TITEL_A', 'Cars-Toons - Bugged')        # Film, Original
 TITEL_B = os.environ.get('TITEL_B', 'DuckTales (Shorts) - s1e6')   # Folge, Klein (480p)
@@ -185,8 +187,14 @@ def abspielen_offline(name_muster, bildname):
     tippe(eintrag)
     time.sleep(10)
     bild(bildname)
-    sitzung = sh('dumpsys media_session')
-    spielt = bool(re.search(r'package=' + re.escape(PAKET) + r'[\s\S]{0,1500}?state=PlaybackState \{state=3', sitzung)) or 'state=3' in sitzung
+    # Läuft die Wiedergabe? Position in der Mediensitzung muss nach 3 s weitergelaufen sein
+    def position():
+        m = re.search(r'state=PlaybackState \{state=(\d+), position=(\d+)', sh('dumpsys media_session'))
+        return (int(m.group(1)), int(m.group(2))) if m else (0, 0)
+    z1, p1 = position()
+    time.sleep(3)
+    z2, p2 = position()
+    spielt = z2 == 3 or p2 > p1
     schritt(f'Offline-Wiedergabe läuft ({name_muster})', spielt)
     time.sleep(8)
     sh('input keyevent KEYCODE_BACK')   # Player schließen -> Position wird gemerkt
@@ -283,7 +291,7 @@ def main():
             if not eimer:
                 break
             tippe(eimer)
-            ja = finde(r'^ja$|^yes$', 'Button', 10)
+            ja = finde(r'^ja$|^yes$', None, 10)   # Compose-Knopf, keine Button-Klasse
             if ja:
                 tippe(ja)
             time.sleep(2)

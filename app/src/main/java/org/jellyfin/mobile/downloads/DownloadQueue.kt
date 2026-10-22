@@ -51,7 +51,16 @@ class DownloadQueue(
             val iterator = _downloads.iterator()
             while (iterator.hasNext()) {
                 val downloadWithFiles = iterator.next()
-                process(downloadWithFiles)
+                try {
+                    process(downloadWithFiles)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: IOException) {
+                    throw e // Netz weg: ganzer Lauf später erneut (WorkManager)
+                } catch (e: Exception) {
+                    // KinoLel: Fehler bei einem Titel (z. B. Server-Fehler) -> als Fehler markiert, die anderen laufen weiter
+                    Timber.w(e, "KinoLel: Download %s fehlgeschlagen", downloadWithFiles.download.itemId)
+                }
                 iterator.remove()
             }
 

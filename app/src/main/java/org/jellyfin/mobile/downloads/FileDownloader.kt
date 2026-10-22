@@ -52,8 +52,14 @@ class FileDownloader(
         // 416 (Requested Range Not Satisfiable) can happen when we've already fully downloaded the file
         if (response.code == 416 && rangeStart != null && rangeStart >= response.getContentRange().total) return response
 
-        // Throw for other unsuccessful responses
-        if (!response.isSuccessful) throw IOException("Unexpected response $response")
+        // KinoLel: Fehlerantwort des Servers (z. B. 500, wenn die Umwandlung scheitert) ist kein Netzproblem – nicht endlos
+        // als „wartet“ wiederholen, sondern als Fehler zeigen („tippen zum Wiederholen“). Nur 408/429/5xx-Überlast bleiben IO.
+        if (!response.isSuccessful) {
+            val code = response.code
+            response.close()
+            if (code == 408 || code == 429 || code == 502 || code == 503 || code == 504) throw IOException("Server vorübergehend: $code")
+            throw ServerFehler(code)
+        }
 
         return response
     }
@@ -126,3 +132,6 @@ class FileDownloader(
         save(response, to, progressCallback)
     }
 }
+
+/** KinoLel: Der Server hat den Download abgelehnt bzw. ist dabei gescheitert (HTTP-Fehler). */
+class ServerFehler(val code: Int) : Exception("Server antwortet mit HTTP $code")
