@@ -18,7 +18,7 @@ systemdialog_weg() {
 }
 
 # 1. Vorversion (letztes Release) installieren und einmal starten
-VOR=$(curl -s https://api.github.com/repos/Parcival1/kinolel-android/releases | python3 -c '
+VOR=$(curl -s ${GH_TOKEN:+-H "Authorization: Bearer $GH_TOKEN"} https://api.github.com/repos/Parcival1/kinolel-android/releases | python3 -c '
 import json,sys
 for r in json.load(sys.stdin):
     for a in r.get("assets", []):
@@ -38,7 +38,7 @@ adb shell pm grant "$PAKET" android.permission.POST_NOTIFICATIONS || true
 adb logcat -c
 adb shell am start -W -n "$PAKET/org.jellyfin.mobile.MainActivity"
 sleep 6; systemdialog_weg; adb exec-out screencap -p > rauchtest/00-neuigkeiten.png
-if ui | grep -qE "Neu in |New in |Újdonságok"; then echo "NEUIGKEITEN: nach Update gezeigt" | tee rauchtest/neuigkeiten.txt; else echo "NEUIGKEITEN: FEHLT nach Update" | tee rauchtest/neuigkeiten.txt; fi
+if ui | grep -qE "Neu in |New in |Újdonságok"; then echo "NEUIGKEITEN: nach Update gezeigt" | tee rauchtest/neuigkeiten.txt; else if [ -z "${VOR:-}" ]; then echo "NEUIGKEITEN: nicht geprüft – Vorversion nicht gefunden (GitHub-API)" | tee rauchtest/neuigkeiten.txt; else echo "NEUIGKEITEN: FEHLT nach Update" | tee rauchtest/neuigkeiten.txt; fi; fi
 adb shell am force-stop "$PAKET"
 adb shell am start -W -n "$PAKET/org.jellyfin.mobile.MainActivity"
 sleep 6

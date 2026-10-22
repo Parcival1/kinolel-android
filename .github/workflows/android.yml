@@ -103,6 +103,9 @@ jobs:
           sudo udevadm trigger --name-match=kvm
 
       - name: Emulator starten, App öffnen, Bildschirmfotos
+        env:
+          # Vorversion über die GitHub-API finden (ohne Anmeldung oft gesperrt: 60 Anfragen/Std. je Runner-Adresse)
+          GH_TOKEN: ${{ github.token }}
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 34
