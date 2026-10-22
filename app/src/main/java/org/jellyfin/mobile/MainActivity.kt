@@ -26,6 +26,7 @@ import kotlinx.coroutines.launch
 import org.jellyfin.mobile.events.ActivityEvent
 import org.jellyfin.mobile.events.ActivityEventHandler
 import org.jellyfin.mobile.kinolel.Aktualisierung
+import org.jellyfin.mobile.kinolel.Neuigkeiten
 import org.jellyfin.mobile.player.cast.Chromecast
 import org.jellyfin.mobile.player.cast.IChromecast
 import org.jellyfin.mobile.player.ui.PlayerFragment
@@ -164,6 +165,8 @@ class MainActivity : AppCompatActivity() {
         chromecast.initializePlugin(this)
 
         // KinoLel: nach neuer Version suchen (GitHub-Releases)
+        // KinoLel: einmal nach einem Update zeigen, was neu ist (vor der Update-Prüfung)
+        Neuigkeiten.zeigenFallsNeu(this)
         Aktualisierung.pruefen(this)
     }
 

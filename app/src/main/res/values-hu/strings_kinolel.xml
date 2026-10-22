@@ -35,4 +35,7 @@
     <string name="kinolel_dl_speicherort">Védett alkalmazás-tárhelyen (nem jelenik meg a galériában vagy a fájlok között, eltávolításkor törlődik)</string>
     <string name="kinolel_offline_hinweis">Internet nélkül is megnézheted a letöltéseidet.</string>
     <string name="kinolel_offline_downloads">Letöltéseim (%1$d)</string>
+    <string name="kinolel_neu_titel">Újdonságok – %1$s %2$s</string>
+    <string name="kinolel_neu_version">%1$s. verzió</string>
+    <string name="kinolel_neu_ok">Rendben</string>
 </resources>

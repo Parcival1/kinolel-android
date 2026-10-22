@@ -36,4 +36,7 @@
     <string name="kinolel_dl_speicherort">In protected app storage (not in gallery or files, removed when uninstalling)</string>
     <string name="kinolel_offline_hinweis">Without internet you can watch your downloads.</string>
     <string name="kinolel_offline_downloads">My downloads (%1$d)</string>
+    <string name="kinolel_neu_titel">New in %1$s %2$s</string>
+    <string name="kinolel_neu_version">Version %1$s</string>
+    <string name="kinolel_neu_ok">Got it</string>
 </resources>

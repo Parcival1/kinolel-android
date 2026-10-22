@@ -1,0 +1,46 @@
+{
+  "versionen": [
+    {
+      "version": "0.1.5",
+      "de": ["Nach jedem Update zeigt KinoLel jetzt einmal kurz, was neu ist – so wie hier."],
+      "hu": ["Minden frissítés után a KinoLel egyszer röviden megmutatja, mi az újdonság – mint most."],
+      "en": ["After every update, KinoLel now briefly shows once what's new – just like this."]
+    },
+    {
+      "version": "0.1.4",
+      "de": [
+        "Filme und Folgen herunterladen und ohne Internet anschauen: neben „Abspielen“ gibt es jetzt den Knopf „Herunterladen“, bei Staffeln „Staffel herunterladen“.",
+        "Du wählst die Qualität: Original oder kleiner, damit weniger Speicher belegt wird. Heruntergeladen wird normalerweise nur im WLAN.",
+        "Ohne Internet öffnen sich deine Downloads von selbst. KinoLel merkt sich, wo du aufgehört hast – auch für deine anderen Geräte.",
+        "Alle Downloads findest du über dein Profilbild → „Downloads“. Dort kannst du sie auch wieder löschen."
+      ],
+      "hu": [
+        "Filmek és epizódok letöltése és megnézése internet nélkül: a „Lejátszás” mellett most ott van a „Letöltés” gomb, évadoknál az „Évad letöltése”.",
+        "A minőséget te választod: eredeti vagy kisebb, hogy kevesebb helyet foglaljon. A letöltés alapból csak Wi-Fi-n történik.",
+        "Internet nélkül a letöltéseid maguktól megnyílnak. A KinoLel megjegyzi, hol tartottál – a többi eszközödön is.",
+        "Az összes letöltést a profilképeden → „Letöltések” alatt találod. Ott törölni is tudod őket."
+      ],
+      "en": [
+        "Download movies and episodes and watch them without internet: next to “Play” there is now a “Download” button, for seasons “Download season”.",
+        "You choose the quality: original or smaller to save space. By default, downloads only run on Wi-Fi.",
+        "Without internet your downloads open by themselves. KinoLel remembers where you stopped – also for your other devices.",
+        "You find all downloads via your profile picture → “Downloads”, where you can also delete them."
+      ]
+    },
+    {
+      "version": "0.1.3",
+      "de": [
+        "„Fortsetzen“ startet an der richtigen Stelle – auch gleich nach der ersten Anmeldung.",
+        "Pause, Weiter und Stopp vom Server funktionieren jetzt auch im Player der App."
+      ],
+      "hu": [
+        "A „Folytatás” a megfelelő helyen indul – az első bejelentkezés után is.",
+        "A szerverről küldött szünet, folytatás és leállítás most az alkalmazás lejátszójában is működik."
+      ],
+      "en": [
+        "“Resume” starts at the right spot – even right after your first sign-in.",
+        "Pause, resume and stop sent from the server now also work in the app's player."
+      ]
+    }
+  ]
+}

@@ -36,4 +36,7 @@
     <string name="kinolel_dl_speicherort">Im geschützten App-Speicher (nicht in Galerie oder Dateien, wird beim Deinstallieren gelöscht)</string>
     <string name="kinolel_offline_hinweis">Ohne Internet kannst du deine Downloads ansehen.</string>
     <string name="kinolel_offline_downloads">Meine Downloads (%1$d)</string>
+    <string name="kinolel_neu_titel">Neu in %1$s %2$s</string>
+    <string name="kinolel_neu_version">Version %1$s</string>
+    <string name="kinolel_neu_ok">Alles klar</string>
 </resources>

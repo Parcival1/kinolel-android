@@ -38,3 +38,6 @@ Hinweise:
 - Downloads liegen im geschützten App-Speicher (nicht in Galerie/Dateien), beim Deinstallieren sind sie weg.
 - Kleinere Stufen wandelt der Server beim Herunterladen um; Untertitel (auch ungarische) werden mitgeladen.
 
+## Was ist neu (ab v0.1.5)
+Nach einem Update zeigt KinoLel beim ersten Start **einmal** „Neu in KinoLel <Version>“ mit den Neuerungen (Deutsch/Ungarisch/Englisch je nach Handysprache). Beim nächsten Start nicht mehr. Nach einer Neuinstallation erscheint nichts.
+
