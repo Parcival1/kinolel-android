@@ -4,6 +4,7 @@
 Fertig ist es, wenn ein Download im Flugmodus aus der Download-Liste abspielbar ist. Ablauf:
  1. App frisch starten (Deutsch), mit dem Hilfskonto anmelden (Passwort nur aus KINOLEL_TEST_PW, nie ausgegeben)
  2. Film A über den neuen Knopf „Herunterladen“ in Original, Folge B in „Klein (480p)“ (Server wandelt um)
+    2b. Befehle vom Server an die eigene Sitzung (Play, Pause, Weiter, Spulen, Stopp) → nativer Player (Jellyfin 12.3)
  3. Flugmodus an, App neu starten -> Downloads öffnen sich von selbst; A und B abspielen (Position wird gemerkt)
  4. Flugmodus aus -> App verbindet sich, meldet die Position an den Server (geprüft über die API)
  5. Aufräumen: Downloads löschen (Papierkorb in der Liste), Testspuren am Server zurücksetzen, abmelden
@@ -205,6 +206,50 @@ def abspielen_offline(name_muster, bildname):
     return spielt
 
 
+def mediensitzung():
+    """(Zustand, Position ms) der Mediensitzung der App – Zustand 3 = spielt, 2 = Pause, 1 = gestoppt, 0 = keine"""
+    text = sh('dumpsys media_session')
+    i = text.find('package=' + PAKET)
+    m = re.search(r'state=PlaybackState \{state=\w*\(?(\d+)\)?, position=(\d+)', text[i:]) if i >= 0 else None
+    return (int(m.group(1)), int(m.group(2))) if m else (0, 0)
+
+
+def fernsteuerung(cdp, titel):
+    """Wie Dashboard/Streams-Grenze: Befehle vom Server an die eigene Sitzung müssen den nativen Player erreichen"""
+    sitzung = cdp.js("""(async()=>{const a=ApiClient;const s=(await a.getSessions({deviceId:a.deviceId()}))||[];
+        const x=s.find(v=>v.DeviceId===a.deviceId());
+        return x?{id:x.Id,fern:x.SupportsRemoteControl,befehle:(x.SupportedCommands||[]).length}:null})()""")
+    if not schritt('Fernsteuerung: eigene Sitzung fernsteuerbar', sitzung and sitzung.get('fern'), sitzung=sitzung):
+        return
+    sid = json.dumps(sitzung['id'])
+
+    def befehl(js):
+        cdp.js("(async()=>{const a=ApiClient;" + js + ";return true})()")
+
+    befehl("await a.sendPlayCommand(%s,{ItemIds:%s,PlayCommand:'PlayNow'})" % (sid, json.dumps(titel['id'])))
+    time.sleep(15)
+    bild('25-fern-play')
+    z = mediensitzung()
+    schritt('Fernsteuerung: Play startet den nativen Player', z[0] == 3, zustand=z)
+    befehl("await a.sendPlayStateCommand(%s,'Pause')" % sid)
+    time.sleep(4)
+    z = mediensitzung()
+    schritt('Fernsteuerung: Pause', z[0] == 2, zustand=z)
+    befehl("await a.sendPlayStateCommand(%s,'Unpause')" % sid)
+    time.sleep(4)
+    z = mediensitzung()
+    schritt('Fernsteuerung: Weiter', z[0] == 3, zustand=z)
+    befehl("await a.sendPlayStateCommand(%s,'Seek',{SeekPositionTicks:300000000})" % sid)
+    time.sleep(4)
+    z = mediensitzung()
+    schritt('Fernsteuerung: Spulen auf 30 s', z[1] >= 29000, zustand=z)
+    befehl("await a.sendPlayStateCommand(%s,'Stop')" % sid)
+    time.sleep(5)
+    z = mediensitzung()
+    bild('26-fern-stopp')
+    schritt('Fernsteuerung: Stopp', z[0] in (0, 1), zustand=z)
+
+
 def main():
     if not PW:
         print('KINOLEL_TEST_PW fehlt – Download-Test übersprungen')
@@ -240,6 +285,8 @@ def main():
     # 2. Herunterladen
     ok_a = herunterladen(cdp, a, r'^Original', '10-a')
     ok_b = herunterladen(cdp, b, r'^Klein \(480p\)', '20-b')
+    if ok_a:
+        fernsteuerung(cdp, a)
     cdp.js("NativeInterface.openDownloadManager();true")
     time.sleep(4)
     bild('30-downloads-online')

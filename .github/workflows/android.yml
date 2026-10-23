@@ -124,9 +124,12 @@ jobs:
 
   # KinoLel (Lel 20.10.2026): Downloads wie bei Netflix – Herunterladen, Flugmodus, offline abspielen, Position nachmelden.
   # Läuft nur mit dem Secret KINOLEL_TEST_PW (Passwort des Hilfskontos, setzt Lel); sonst übersprungen.
+  # Nur bei Versionen oder mit „[download-test]“ in der Commit-Nachricht (lädt Titel herunter – schont Server und NAS).
+  # Prüft auch Befehle vom Server an den nativen Player (Play, Pause, Weiter, Spulen, Stopp).
   downloadtest:
     name: Download-Test im Emulator (offline)
     needs: build
+    if: startsWith(github.ref, 'refs/tags/v') || contains(github.event.head_commit.message, '[download-test]')
     runs-on: ubuntu-26.04
     continue-on-error: true
     steps:
