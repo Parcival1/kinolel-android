@@ -58,7 +58,7 @@ def bild(name):
         f.write(adb('exec-out', 'screencap', '-p', text=False))
 
 
-def ui():
+def ui(tiefe=0):
     """Knoten der Oberfläche (Text, Beschreibung, Klasse, Mittelpunkt)"""
     xml = adb('exec-out', 'uiautomator', 'dump', '/dev/tty')
     xml = xml[xml.find('<?xml'):xml.rfind('>') + 1] if '<?xml' in xml else ''
@@ -73,6 +73,13 @@ def ui():
                            'x': (x1 + x2) // 2, 'y': (y1 + y2) // 2, 'enabled': n.get('enabled') == 'true'})
     except ET.ParseError:
         pass
+    # Emulator unter Last: „Pixel Launcher isn't responding“ legt sich über die App -> „Wait“ drücken, neu lesen
+    if tiefe < 3 and any("isn't responding" in k['text'] or 'reagiert nicht' in k['text'] for k in knoten):
+        warte = next((k for k in knoten if k['text'] in ('Wait', 'Warten')), None)
+        if warte:
+            sh(f"input tap {warte['x']} {warte['y']}")
+            time.sleep(2)
+            return ui(tiefe + 1)
     return knoten
 
 
