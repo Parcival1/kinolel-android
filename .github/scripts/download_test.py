@@ -162,6 +162,9 @@ def app_starten(neu=False):
     if neu:
         sh(f'pm clear {PAKET}')
         sh(f'pm grant {PAKET} android.permission.POST_NOTIFICATIONS')
+        # Nach dem ersten Lauf des nativen Players fragt die App einmal nach Bluetooth (Kopfhörer/Lautsprecher) –
+        # vorab erteilen, wie es ein Nutzer einmal tun würde, sonst verdeckt die Frage die Download-Liste
+        sh(f'pm grant {PAKET} android.permission.BLUETOOTH_CONNECT')
         sh(f'cmd locale set-app-locales {PAKET} --locales de-DE')
     sh(f'am force-stop {PAKET}')
     sh(f'am start -W -n {PAKET}/org.jellyfin.mobile.MainActivity')
