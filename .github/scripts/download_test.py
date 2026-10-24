@@ -351,8 +351,13 @@ def main():
 
     # 4. Wieder online: Verbindung + Nachmelden
     sh('cmd connectivity airplane-mode disable')
+    systemdialog_weg()                   # sonst schluckt die Emulator-Meldung das Zurück
     sh('input keyevent KEYCODE_BACK')    # Download-Liste schließen -> Verbindungsseite verbindet wieder
-    time.sleep(40)
+    time.sleep(5)
+    systemdialog_weg()
+    if finde(r'^Downloads$', None, 3):  # Liste noch offen (Zurück ging an eine Systemmeldung) -> noch einmal
+        sh('input keyevent KEYCODE_BACK')
+    time.sleep(35)
     cdp = cdp_verbinden(120)
     gemeldet = None
     if cdp and warten(cdp, "/^#\\/home/.test(location.hash)", 90):
