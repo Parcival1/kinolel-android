@@ -20,8 +20,11 @@ import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.webkit.WebViewAssetLoader.AssetsPathHandler
 import androidx.webkit.WebViewCompat
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
 import org.jellyfin.mobile.MainViewModel
 import org.jellyfin.mobile.R
@@ -31,6 +34,7 @@ import org.jellyfin.mobile.bridge.MediaSegments
 import org.jellyfin.mobile.bridge.NativeInterface
 import org.jellyfin.mobile.bridge.NativePlayer
 import org.jellyfin.mobile.data.entity.ServerEntity
+import org.jellyfin.mobile.kinolel.FernseherLink
 import org.jellyfin.mobile.databinding.FragmentWebviewBinding
 import org.jellyfin.mobile.setup.ConnectFragment
 import org.jellyfin.mobile.utils.AndroidVersion
@@ -164,6 +168,18 @@ class WebViewFragment : Fragment(), BackPressInterceptor, JellyfinWebChromeClien
         lifecycleScope.launch {
             for (function in webappFunctionChannel) {
                 webView.evaluateJavascript(function, null)
+            }
+        }
+
+        // KinoLel (Lel 24.10.2026): Quick-Connect-Link vom Fernseher-QR-Code öffnen, sobald die Weboberfläche bereit ist –
+        // auch wenn die App schon lief
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                FernseherLink.code.filterNotNull().collect { code ->
+                    while (!connected) delay(FernseherLink.WARTEN_MS)
+                    webViewBinding?.webView?.evaluateJavascript(FernseherLink.navigation(code), null)
+                    FernseherLink.erledigt()
+                }
             }
         }
     }

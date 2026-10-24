@@ -58,6 +58,17 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- KinoLel (Lel 24.10.2026): QR-Code der Fernseher-Anmeldung (KinoLel TV) öffnet diese App statt des Browsers.
+                 App Link, verifiziert über https://kinolel.de/.well-known/assetlinks.json (Signierschlüssel der App). -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:host="${kinolelHost}"
+                    android:pathPrefix="/web/kinolel/qc"
+                    android:scheme="https" />
+            </intent-filter>
             <!-- declare legacy support for voice actions -->
             <intent-filter>
                 <action android:name="android.media.action.MEDIA_PLAY_FROM_SEARCH" />

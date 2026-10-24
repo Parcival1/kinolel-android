@@ -102,10 +102,15 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      - name: Emulator starten, App öffnen, Bildschirmfotos
+      - name: Python-Werkzeug für die WebView-Steuerung (App-Link-Test)
+        run: pip3 install --quiet websocket-client
+
+      - name: Emulator starten, App öffnen, Bildschirmfotos, App-Link vom Fernseher-QR-Code
         env:
           # Vorversion über die GitHub-API finden (ohne Anmeldung oft gesperrt: 60 Anfragen/Std. je Runner-Adresse)
           GH_TOKEN: ${{ github.token }}
+          # App-Link-Test meldet sich einmal mit dem Hilfskonto an (ohne Secret nur bis zur Anmeldeseite)
+          KINOLEL_TEST_PW: ${{ secrets.KINOLEL_TEST_PW }}
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 34
@@ -113,7 +118,9 @@ jobs:
           target: google_apis
           profile: pixel_7
           disable-animations: true
-          script: bash .github/scripts/rauchtest.sh
+          script: |
+            bash .github/scripts/rauchtest.sh
+            python3 .github/scripts/applink_test.py rauchtest/applink
 
       - name: Bildschirmfotos hochladen
         if: always()

@@ -1,6 +1,18 @@
 {
   "versionen": [
     {
+      "version": "0.1.8",
+      "de": [
+        "Fernseher anmelden: Scannst du den QR-Code der KinoLel-TV-App mit der Handy-Kamera, öffnet sich gleich diese App mit eingetragenem Code – du tippst nur noch auf „Autorisieren“."
+      ],
+      "hu": [
+        "Tévé bejelentkeztetése: ha a telefon kamerájával beolvasod a KinoLel TV alkalmazás QR-kódját, azonnal ez az alkalmazás nyílik meg a beírt kóddal – csak az „Engedélyezés” gombra kell koppintanod."
+      ],
+      "en": [
+        "Signing in the TV: scan the QR code of the KinoLel TV app with your phone camera and this app opens right away with the code filled in – just tap “Authorize”."
+      ]
+    },
+    {
       "version": "0.1.7",
       "de": [
         "KinoLel sucht jetzt bei jedem Öffnen nach einer neuen Version. Von Hand geht es unter Einstellungen → „Nach Updates suchen“. Tippst du auf „Später“, fragt die App erst nach ein paar Stunden wieder."

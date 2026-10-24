@@ -1,0 +1,185 @@
+#!/usr/bin/env python3
+"""KinoLel-Android: QR-Code der Fernseher-Anmeldung öffnet die App (Lel 24.10.2026: „… dass man nicht eine Website
+geöffnet bekommt sondern … die KinoLel App auf dem Handy“).
+
+ 1. App Link verifiziert: `pm get-app-links` zeigt kinolel.de als verified (assetlinks.json auf kinolel.de)
+ 2. Link https://kinolel.de/web/kinolel/qc.html?code=123456 bei beendeter App -> öffnet DIESE App (kein Browser),
+    Weboberfläche geht zur Quick-Connect-Seite (ohne Anmeldung: Anmeldeseite mit gemerktem Ziel)
+ 3. mit Hilfskonto anmelden (Passwort nur aus KINOLEL_TEST_PW, nie ausgegeben) -> Quick-Connect-Seite, Code 123456
+    eingetragen, nichts abgeschickt
+ 4. zweiter Link (Code 654321), während die App läuft -> Code 654321 eingetragen
+ 5. abmelden (fail2ban: nur eine Anmeldung je Lauf)
+Aufruf: python3 applink_test.py <ausgabe-ordner>
+"""
+import json
+import os
+import re
+import subprocess
+import sys
+import time
+import urllib.request
+
+import websocket
+
+AUS = sys.argv[1] if len(sys.argv) > 1 else 'applink'
+PAKET = os.environ.get('PAKET', 'de.kinolel.app')
+BENUTZER = os.environ.get('KINOLEL_TEST_USER', 'kinolel-hilfe')
+PW = (os.environ.get('KINOLEL_TEST_PW') or '').strip('\r\n')
+LINK = 'https://kinolel.de/web/kinolel/qc.html?code='
+os.makedirs(AUS, exist_ok=True)
+ergebnis = {}
+
+
+def merke(name, ok, info=''):
+    ergebnis[name] = {'ok': bool(ok), 'info': info}
+    print(('OK     ' if ok else 'FEHLER ') + name + (f' – {info}' if info else ''), flush=True)
+    return ok
+
+
+def adb(*args, text=True, timeout=120):
+    return subprocess.run(['adb', *args], capture_output=True, text=text, timeout=timeout).stdout
+
+
+def sh(befehl):
+    return adb('shell', befehl)
+
+
+def bild(name):
+    with open(os.path.join(AUS, name + '.png'), 'wb') as f:
+        f.write(adb('exec-out', 'screencap', '-p', text=False))
+
+
+class Cdp:
+    def __init__(self, ws_url):
+        self.ws = websocket.create_connection(ws_url, timeout=60, suppress_origin=True)
+        self.n = 0
+
+    def rufe(self, methode, **params):
+        self.n += 1
+        self.ws.send(json.dumps({'id': self.n, 'method': methode, 'params': params}))
+        while True:
+            a = json.loads(self.ws.recv())
+            if a.get('id') == self.n:
+                return a.get('result', {})
+
+    def js(self, code):
+        r = self.rufe('Runtime.evaluate', expression=code, returnByValue=True, awaitPromise=True)
+        return r.get('result', {}).get('value')
+
+
+def cdp_verbinden(frist=90):
+    """WebView der App über DevTools (Emulator-Images sind userdebug -> auch bei der Release-APK offen)"""
+    ende = time.time() + frist
+    while time.time() < ende:
+        pid = sh(f'pidof {PAKET}').strip().split(' ')[0]
+        if pid:
+            sockel = re.findall(r'@(webview_devtools_remote_' + pid + r')\b', sh('cat /proc/net/unix'))
+            if sockel:
+                adb('forward', 'tcp:9334', 'localabstract:' + sockel[0])
+                try:
+                    for z in json.load(urllib.request.urlopen('http://127.0.0.1:9334/json', timeout=5)):
+                        if z.get('type') == 'page' and 'kinolel' in z.get('url', ''):
+                            return Cdp(z['webSocketDebuggerUrl'])
+                except Exception:  # noqa: BLE001
+                    pass
+        time.sleep(2)
+    return None
+
+
+def warten(cdp, ausdruck, frist=60):
+    ende = time.time() + frist
+    while time.time() < ende:
+        try:
+            if cdp.js(ausdruck):
+                return True
+        except Exception:  # noqa: BLE001
+            pass
+        time.sleep(1)
+    return False
+
+
+def link_oeffnen(code):
+    """wie die Handy-Kamera / ein QR-Scanner: nur die Adresse, kein Paketname -> Android entscheidet (App Link)"""
+    return adb('shell', 'am', 'start', '-W', '-a', 'android.intent.action.VIEW',
+               '-c', 'android.intent.category.BROWSABLE', '-d', f"'{LINK}{code}'")
+
+
+ZUSTAND = ("(function(){var f=document.querySelector('#txtQuickConnectCode');var a=document.activeElement;"
+           "return {hash:location.hash, wert:f?f.value:null, fokus:a?String(a.className||a.tagName):'',"
+           "fehler:(document.querySelector('.quickConnectError')||{}).textContent||''}})()")
+
+
+def main():
+    # 1. Verifizierung
+    sh(f'pm verify-app-links --re-verify {PAKET}')
+    zustand = ''
+    for _ in range(45):
+        zustand = sh(f'pm get-app-links {PAKET}')
+        if re.search(r'kinolel\.de:\s*verified', zustand):
+            break
+        time.sleep(2)
+    with open(os.path.join(AUS, 'get-app-links.txt'), 'w', encoding='utf-8') as f:
+        f.write(zustand)
+    merke('App Link kinolel.de verifiziert (pm get-app-links)', re.search(r'kinolel\.de:\s*verified', zustand),
+          ' '.join(re.findall(r'kinolel\.de:\s*\S+', zustand)))
+
+    # 2. Kaltstart über den Link
+    sh(f'am force-stop {PAKET}')
+    aus = link_oeffnen('123456')
+    merke('Link öffnet die KinoLel-App (kein Browser)', f'{PAKET}/' in aus,
+          ' '.join(z.strip() for z in aus.splitlines() if z.strip().startswith(('Activity', 'Status'))))
+    cdp = cdp_verbinden()
+    if not merke('WebView erreichbar (DevTools)', cdp):
+        return
+    weg = warten(cdp, "/quickconnect(\\?|%3F)code(=|%3D)123456/.test(location.hash)", 60)
+    time.sleep(2)
+    bild('applink-1-kaltstart')
+    merke('Weboberfläche: Quick Connect mit Code 123456 (ohne Anmeldung über die Anmeldeseite)', weg,
+          (cdp.js('location.hash') or '')[:120])
+
+    # 3. Anmelden -> zurück zur Quick-Connect-Seite mit Code
+    if not PW:
+        print('KINOLEL_TEST_PW fehlt – Anmeldung übersprungen')
+        return
+    if not cdp.js("/^#\\/login/.test(location.hash)"):
+        merke('Anmeldeseite (App war ohne Konto)', False, cdp.js('location.hash'))
+        return
+    warten(cdp, "!!document.querySelector('#txtManualName')", 30)
+    cdp.js("(function(){var s=function(f,w){Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(f,w);"
+           "f.dispatchEvent(new Event('input',{bubbles:true}));};var n=document.querySelector('#txtManualName');n.focus();s(n,%s);"
+           "var p=document.querySelector('#txtManualPassword');s(p,'');p.focus();return true})()" % json.dumps(BENUTZER))
+    cdp.rufe('Input.insertText', text=PW)   # Passwort nur als Tastatureingabe
+    time.sleep(0.5)
+    cdp.js("document.querySelector('#loginPage .manualLoginForm button[type=submit]').click();true")
+    da = warten(cdp, "(function(){var f=document.querySelector('#txtQuickConnectCode');return f&&f.value==='123456'})()", 60)
+    time.sleep(2.5)
+    z = cdp.js(ZUSTAND) or {}
+    bild('applink-2-nach-anmeldung')
+    merke('nach der Anmeldung: Quick-Connect-Seite mit Code 123456', da, z)
+    merke('nichts abgeschickt', da and not z.get('fehler'), z.get('fehler'))
+
+    # 4. App läuft: zweiter Link
+    try:
+        aus = link_oeffnen('654321')
+        da = warten(cdp, "(function(){var f=document.querySelector('#txtQuickConnectCode');return /quickconnect/.test(location.hash)&&f&&f.value==='654321'})()", 40)
+        time.sleep(2)
+        bild('applink-3-laufende-app')
+        merke('App lief schon: zweiter Link trägt Code 654321 ein', da, (cdp.js(ZUSTAND) or {}))
+    finally:
+        # 5. abmelden (Zugang nie ausgeben)
+        print('Abmelden:', cdp.js("(function(){try{var c=JSON.parse(localStorage.getItem('jellyfin_credentials'));var s=c.Servers[0];"
+                                  "if(!s.AccessToken)return 'keine Sitzung';return fetch('https://kinolel.de/Sessions/Logout',{method:'POST',"
+                                  "headers:{'Authorization':'MediaBrowser Token=\"'+s.AccessToken+'\"'}}).then(function(r){return 'HTTP '+r.status})}"
+                                  "catch(e){return 'Fehler '+e}})()"))
+
+
+try:
+    main()
+except Exception as e:  # noqa: BLE001
+    merke('Ablauf', False, f'{type(e).__name__}: {e}')
+finally:
+    with open(os.path.join(AUS, 'ergebnis.json'), 'w', encoding='utf-8') as f:
+        json.dump(ergebnis, f, ensure_ascii=False, indent=1, default=str)
+    fehler = [k for k, v in ergebnis.items() if not v['ok']]
+    print(f'APPLINK-ERGEBNIS: {len(ergebnis) - len(fehler)} von {len(ergebnis)} OK' + (f' – Fehler: {", ".join(fehler)}' if fehler else ''))
+sys.exit(0)

@@ -41,3 +41,11 @@ Hinweise:
 ## Was ist neu (ab v0.1.5)
 Nach einem Update zeigt KinoLel beim ersten Start **einmal** „Neu in KinoLel <Version>“ mit den Neuerungen (Deutsch/Ungarisch/Englisch je nach Handysprache). Beim nächsten Start nicht mehr. Nach einer Neuinstallation erscheint nichts.
 
+
+## Fernseher anmelden per QR-Code (ab v0.1.8)
+Die Fernseher-App KinoLel TV zeigt beim Anmelden einen QR-Code. Mit der Handy-Kamera scannen: Ist KinoLel installiert,
+öffnet sich **direkt diese App** auf der Quick-Connect-Seite, der Code ist schon eingetragen – nur noch „Autorisieren“
+tippen. Ohne App (oder am iPhone) öffnet sich der Browser mit derselben Seite. Nicht angemeldet: erst anmelden, danach
+erscheint die Quick-Connect-Seite mit dem Code.
+- Falls stattdessen der Browser aufgeht: Android-Einstellungen → Apps → KinoLel → „Standardmäßig öffnen“ →
+  „Unterstützte Links öffnen“ einschalten, `kinolel.de` muss dort als bestätigt stehen.

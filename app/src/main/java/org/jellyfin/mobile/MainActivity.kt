@@ -26,6 +26,7 @@ import kotlinx.coroutines.launch
 import org.jellyfin.mobile.events.ActivityEvent
 import org.jellyfin.mobile.events.ActivityEventHandler
 import org.jellyfin.mobile.kinolel.Aktualisierung
+import org.jellyfin.mobile.kinolel.FernseherLink
 import org.jellyfin.mobile.kinolel.Neuigkeiten
 import org.jellyfin.mobile.player.cast.Chromecast
 import org.jellyfin.mobile.player.cast.IChromecast
@@ -130,6 +131,9 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
+        // KinoLel (Lel 24.10.2026): QR-Code der Fernseher-Anmeldung öffnet die App mit dem Quick-Connect-Code
+        if (savedInstanceState == null) FernseherLink.ausIntent(intent)
+
         // Bind player service
         bindService(Intent(this, RemotePlayerService::class.java), serviceConnection, Service.BIND_AUTO_CREATE)
 
@@ -166,6 +170,13 @@ class MainActivity : AppCompatActivity() {
 
         // KinoLel: einmal nach einem Update zeigen, was neu ist (vor der Update-Prüfung)
         Neuigkeiten.zeigenFallsNeu(this)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        // KinoLel: Link vom Fernseher-QR-Code, während die App schon läuft (singleTask)
+        FernseherLink.ausIntent(intent)
     }
 
     override fun onResume() {
