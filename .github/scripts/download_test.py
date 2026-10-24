@@ -138,6 +138,19 @@ def warten(cdp, ausdruck, frist=60):
     return False
 
 
+def systemdialog_weg():
+    """Emulator-Meldung „… isn't responding“ (z. B. Pixel Launcher) mit „Wait“ schließen – sie verdeckt sonst die App."""
+    import re as _re
+    for _ in range(3):
+        xml = subprocess.run(['adb', 'exec-out', 'uiautomator', 'dump', '/dev/tty'], capture_output=True, text=True, timeout=30).stdout
+        if "isn't responding" not in xml and 'reagiert nicht' not in xml:
+            return
+        m = _re.search(r'text="(?:Wait|Warten)"[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"', xml)
+        if m:
+            sh(f'input tap {(int(m[1]) + int(m[3])) // 2} {(int(m[2]) + int(m[4])) // 2}')
+        time.sleep(2)
+
+
 def app_starten(neu=False):
     if neu:
         sh(f'pm clear {PAKET}')
@@ -145,6 +158,8 @@ def app_starten(neu=False):
         sh(f'cmd locale set-app-locales {PAKET} --locales de-DE')
     sh(f'am force-stop {PAKET}')
     sh(f'am start -W -n {PAKET}/org.jellyfin.mobile.MainActivity')
+    time.sleep(3)
+    systemdialog_weg()
 
 
 def titel_suchen(cdp, name, typ):
@@ -266,12 +281,21 @@ def main():
     if not warten(cdp, "!!document.querySelector('#txtManualName')", 90):
         bild('00-keine-anmeldung')
         return schritt('Anmeldeseite', False) and 1
-    cdp.js("(function(){var n=document.querySelector('#txtManualName');n.focus();n.value=%s;"
-           "n.dispatchEvent(new Event('input',{bubbles:true}));var p=document.querySelector('#txtManualPassword');p.value='';p.focus();return true})()"
-           % json.dumps(BENUTZER))
-    cdp.rufe('Input.insertText', text=PW)   # Passwort nur als Tastatureingabe
-    cdp.js("document.querySelector('#loginPage .manualLoginForm button[type=submit]').click();true")
-    if not schritt('Anmeldung', warten(cdp, "/^#\\/home/.test(location.hash)", 60)):
+    # Jellyfin 12.3 (React-Formular): einfaches value= wird nicht übernommen -> nativer Setter + input-Ereignis,
+    # Passwort nur als Tastatureingabe; bis zu 3 Versuche (wie im iPhone-Test)
+    angemeldet = False
+    for versuch in range(3):
+        cdp.js("(function(){var s=function(f,w){Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(f,w);"
+               "f.dispatchEvent(new Event('input',{bubbles:true}));};var n=document.querySelector('#txtManualName');n.focus();s(n,%s);"
+               "var p=document.querySelector('#txtManualPassword');s(p,'');p.focus();return true})()" % json.dumps(BENUTZER))
+        cdp.rufe('Input.insertText', text=PW)   # Passwort nur als Tastatureingabe
+        time.sleep(0.5)
+        cdp.js("document.querySelector('#loginPage .manualLoginForm button[type=submit]').click();true")
+        if warten(cdp, "/^#\\/home/.test(location.hash)", 40):
+            angemeldet = True
+            break
+        print(f'Anmeldung Versuch {versuch + 1} nicht durch, Hinweis: ' + str(cdp.js("Array.from(document.querySelectorAll('.toast')).map(function(t){return t.textContent}).join(' | ')"))[:200])
+    if not schritt('Anmeldung', angemeldet):
         bild('01-anmeldung-fehlgeschlagen')
         return 1
     time.sleep(5)
