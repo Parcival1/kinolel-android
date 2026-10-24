@@ -104,6 +104,40 @@ def link_oeffnen(code):
                '-c', 'android.intent.category.BROWSABLE', '-d', f"'{LINK}{code}'")
 
 
+# Passwort NIE tippen (Input.insertText) und nie als Skripttext: 24.10.2026 landete das getippte Passwort unter
+# Emulator-Last („Pixel Launcher isn't responding“) im Benutzerfeld und stand im Klartext auf einem öffentlichen
+# Testbild. Jetzt per Selektor direkt ins (verdeckte) Passwortfeld, Wert nur als CDP-Argument; Benutzerfeld prüfen.
+FELD_SETZEN = ("function(w){Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(this,w);"
+               "this.dispatchEvent(new Event('input',{bubbles:true}));this.dispatchEvent(new Event('change',{bubbles:true}));}")
+
+
+def feld_setzen(cdp, selektor, wert):
+    feld = cdp.rufe('Runtime.evaluate', expression=f"document.querySelector('{selektor}')").get('result', {})
+    if not feld.get('objectId'):
+        return False
+    cdp.rufe('Runtime.callFunctionOn', objectId=feld['objectId'], arguments=[{'value': wert}], functionDeclaration=FELD_SETZEN)
+    return True
+
+
+def anmeldefelder_fuellen(cdp, benutzer, passwort):
+    """True, wenn Benutzer- und Passwortfeld richtig gefüllt sind (sonst beide geleert)."""
+    ok = feld_setzen(cdp, '#txtManualName', benutzer) and feld_setzen(cdp, '#txtManualPassword', passwort)
+    ok = ok and cdp.js("document.querySelector('#txtManualName').value") == benutzer \
+        and cdp.js("document.querySelector('#txtManualPassword').type") == 'password'
+    if not ok:
+        anmeldefelder_leeren(cdp)
+    return ok
+
+
+def anmeldefelder_leeren(cdp):
+    """vor jedem Bildschirmfoto einer Anmeldeseite"""
+    for selektor in ('#txtManualName', '#txtManualPassword'):
+        try:
+            feld_setzen(cdp, selektor, '')
+        except Exception:  # noqa: BLE001
+            pass
+
+
 ZUSTAND = ("(function(){var f=document.querySelector('#txtQuickConnectCode');var a=document.activeElement;"
            "return {hash:location.hash, wert:f?f.value:null, fokus:a?String(a.className||a.tagName):'',"
            "fehler:(document.querySelector('.quickConnectError')||{}).textContent||''}})()")
@@ -145,15 +179,23 @@ def main():
     if not warten(cdp, "/^#\\/login/.test(location.hash) && !!document.querySelector('#txtManualName')", 30):
         merke('Anmeldeseite (App war ohne Konto)', False, cdp.js('location.hash'))
         return
-    cdp.js("(function(){var s=function(f,w){Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(f,w);"
-           "f.dispatchEvent(new Event('input',{bubbles:true}));};var n=document.querySelector('#txtManualName');n.focus();s(n,%s);"
-           "var p=document.querySelector('#txtManualPassword');s(p,'');p.focus();return true})()" % json.dumps(BENUTZER))
-    cdp.rufe('Input.insertText', text=PW)   # Passwort nur als Tastatureingabe
-    time.sleep(0.5)
-    cdp.js("document.querySelector('#loginPage .manualLoginForm button[type=submit]').click();true")
-    da = warten(cdp, "(function(){var f=document.querySelector('#txtQuickConnectCode');return f&&f.value==='123456'})()", 60)
+    # Jellyfin 12.3: Anmeldung klappt manchmal erst im zweiten Versuch (wie im Download-Test) – höchstens 3 (fail2ban)
+    da = False
+    for versuch in range(3):
+        if not anmeldefelder_fuellen(cdp, BENUTZER, PW):
+            print(f'Anmeldung Versuch {versuch + 1}: Felder nicht sicher gefüllt')
+            time.sleep(3)
+            continue
+        time.sleep(0.5)
+        cdp.js("document.querySelector('#loginPage .manualLoginForm button[type=submit]').click();true")
+        da = warten(cdp, "(function(){var f=document.querySelector('#txtQuickConnectCode');return f&&f.value==='123456'})()", 45)
+        if da or not cdp.js("/^#\\/login/.test(location.hash)"):
+            break
+        print(f'Anmeldung Versuch {versuch + 1} nicht durch, Hinweis: ' + str(cdp.js("Array.from(document.querySelectorAll('.toast')).map(function(t){return t.textContent}).join(' | ')"))[:200])
     time.sleep(2.5)
     z = cdp.js(ZUSTAND) or {}
+    if not da:
+        anmeldefelder_leeren(cdp)
     bild('applink-2-nach-anmeldung')
     merke('nach der Anmeldung: Quick-Connect-Seite mit Code 123456', da, z)
     merke('nichts abgeschickt', da and not z.get('fehler'), z.get('fehler'))

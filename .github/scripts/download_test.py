@@ -133,6 +133,40 @@ def cdp_verbinden(frist=90):
     return None
 
 
+# Passwort NIE tippen (Input.insertText) und nie als Skripttext: 24.10.2026 landete das getippte Passwort unter
+# Emulator-Last („Pixel Launcher isn't responding“) im Benutzerfeld und stand im Klartext auf einem öffentlichen
+# Testbild. Jetzt per Selektor direkt ins (verdeckte) Passwortfeld, Wert nur als CDP-Argument; Benutzerfeld prüfen.
+FELD_SETZEN = ("function(w){Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(this,w);"
+               "this.dispatchEvent(new Event('input',{bubbles:true}));this.dispatchEvent(new Event('change',{bubbles:true}));}")
+
+
+def feld_setzen(cdp, selektor, wert):
+    feld = cdp.rufe('Runtime.evaluate', expression=f"document.querySelector('{selektor}')").get('result', {})
+    if not feld.get('objectId'):
+        return False
+    cdp.rufe('Runtime.callFunctionOn', objectId=feld['objectId'], arguments=[{'value': wert}], functionDeclaration=FELD_SETZEN)
+    return True
+
+
+def anmeldefelder_fuellen(cdp, benutzer, passwort):
+    """True, wenn Benutzer- und Passwortfeld richtig gefüllt sind (sonst beide geleert)."""
+    ok = feld_setzen(cdp, '#txtManualName', benutzer) and feld_setzen(cdp, '#txtManualPassword', passwort)
+    ok = ok and cdp.js("document.querySelector('#txtManualName').value") == benutzer \
+        and cdp.js("document.querySelector('#txtManualPassword').type") == 'password'
+    if not ok:
+        anmeldefelder_leeren(cdp)
+    return ok
+
+
+def anmeldefelder_leeren(cdp):
+    """vor jedem Bildschirmfoto einer Anmeldeseite"""
+    for selektor in ('#txtManualName', '#txtManualPassword'):
+        try:
+            feld_setzen(cdp, selektor, '')
+        except Exception:  # noqa: BLE001
+            pass
+
+
 def warten(cdp, ausdruck, frist=60):
     ende = time.time() + frist
     while time.time() < ende:
@@ -295,10 +329,10 @@ def main():
     # Passwort nur als Tastatureingabe; bis zu 3 Versuche (wie im iPhone-Test)
     angemeldet = False
     for versuch in range(3):
-        cdp.js("(function(){var s=function(f,w){Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(f,w);"
-               "f.dispatchEvent(new Event('input',{bubbles:true}));};var n=document.querySelector('#txtManualName');n.focus();s(n,%s);"
-               "var p=document.querySelector('#txtManualPassword');s(p,'');p.focus();return true})()" % json.dumps(BENUTZER))
-        cdp.rufe('Input.insertText', text=PW)   # Passwort nur als Tastatureingabe
+        if not anmeldefelder_fuellen(cdp, BENUTZER, PW):
+            print(f'Anmeldung Versuch {versuch + 1}: Felder nicht sicher gefüllt')
+            time.sleep(3)
+            continue
         time.sleep(0.5)
         cdp.js("document.querySelector('#loginPage .manualLoginForm button[type=submit]').click();true")
         if warten(cdp, "/^#\\/home/.test(location.hash)", 40):
@@ -306,6 +340,7 @@ def main():
             break
         print(f'Anmeldung Versuch {versuch + 1} nicht durch, Hinweis: ' + str(cdp.js("Array.from(document.querySelectorAll('.toast')).map(function(t){return t.textContent}).join(' | ')"))[:200])
     if not schritt('Anmeldung', angemeldet):
+        anmeldefelder_leeren(cdp)
         bild('01-anmeldung-fehlgeschlagen')
         return 1
     time.sleep(5)
