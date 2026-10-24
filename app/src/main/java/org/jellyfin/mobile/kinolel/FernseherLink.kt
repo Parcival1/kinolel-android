@@ -36,9 +36,27 @@ object FernseherLink {
         _code.value = code
     }
 
-    /** JavaScript für die Weboberfläche: zur Quick-Connect-Seite (ohne Anmeldung leitet Jellyfin über die Anmeldung). */
-    fun navigation(code: String): String =
-        "location.hash = '#/quickconnect" + (if (code.isEmpty()) "" else "?code=$code") + "'"
+    /**
+     * JavaScript für die Weboberfläche: zur Quick-Connect-Seite (ohne Anmeldung leitet Jellyfin über die Anmeldung).
+     * Steht die Seite schon offen (zweiter QR-Code), liest Jellyfin den Code aus der Adresse nicht neu ein – dann das
+     * Feld direkt setzen (nativer Setter + input-Ereignis für React) und „Autorisieren“ fokussieren. Nie absenden.
+     * [code] enthält nur Ziffern.
+     */
+    fun navigation(code: String): String {
+        val ziel = "#/quickconnect" + (if (code.isEmpty()) "" else "?code=$code")
+        return """
+            (function () {
+              var schonOffen = /^#\/quickconnect/.test(location.hash);
+              location.hash = '$ziel';
+              var f = document.querySelector('#txtQuickConnectCode');
+              if (!schonOffen || !'$code' || !f || f.value === '$code') return;
+              Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(f, '$code');
+              f.dispatchEvent(new Event('input', { bubbles: true }));
+              var knopf = document.querySelector('#quickConnectPreferencesPage .button-submit');
+              if (knopf) knopf.focus();
+            })()
+        """.trimIndent()
+    }
 
     fun erledigt() {
         _code.value = null
