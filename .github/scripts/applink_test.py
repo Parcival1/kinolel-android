@@ -141,10 +141,10 @@ def main():
     if not PW:
         print('KINOLEL_TEST_PW fehlt – Anmeldung übersprungen')
         return
-    if not cdp.js("/^#\\/login/.test(location.hash)"):
+    # Jellyfin leitet von #/quickconnect gleich auf die Anmeldung um (mit gemerktem Ziel) – darauf warten
+    if not warten(cdp, "/^#\\/login/.test(location.hash) && !!document.querySelector('#txtManualName')", 30):
         merke('Anmeldeseite (App war ohne Konto)', False, cdp.js('location.hash'))
         return
-    warten(cdp, "!!document.querySelector('#txtManualName')", 30)
     cdp.js("(function(){var s=function(f,w){Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(f,w);"
            "f.dispatchEvent(new Event('input',{bubbles:true}));};var n=document.querySelector('#txtManualName');n.focus();s(n,%s);"
            "var p=document.querySelector('#txtManualPassword');s(p,'');p.focus();return true})()" % json.dumps(BENUTZER))
