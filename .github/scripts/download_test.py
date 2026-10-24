@@ -310,7 +310,14 @@ def main():
         return 1
     time.sleep(5)
 
-    a = titel_suchen(cdp, TITEL_A, 'Movie')
+    # Emulator unter Last: die DevTools-Verbindung reißt manchmal ab -> einmal neu verbinden
+    try:
+        a = titel_suchen(cdp, TITEL_A, 'Movie')
+    except Exception as e:  # noqa: BLE001
+        print('DevTools-Verbindung neu:', type(e).__name__)
+        cdp = cdp_verbinden(120)
+        warten(cdp, "/^#\\/home/.test(location.hash)", 60)
+        a = titel_suchen(cdp, TITEL_A, 'Movie')
     b = titel_suchen(cdp, TITEL_B, 'Episode')
     schritt('Testtitel gefunden', a and b, a=a and a['name'], b=b and b['name'])
     if not (a and b):
