@@ -49,7 +49,7 @@ android {
         buildConfigField("String", "APP_NAME", "\"${marke.getProperty("APP_NAME")}\"")
         buildConfigField("String", "SERVER_URL", "\"${marke.getProperty("SERVER_URL")}\"")
         // KinoLel: App Link für den QR-Code der Fernseher-Anmeldung (Host aus SERVER_URL)
-        manifestPlaceholders["kinolelHost"] = java.net.URI(marke.getProperty("SERVER_URL")).host
+        manifestPlaceholders["kinolelHost"] = marke.getProperty("SERVER_URL").substringAfter("://").substringBefore("/")
         buildConfigField("String", "UPDATE_REPO", "\"${marke.getProperty("UPDATE_REPO")}\"")
         // KinoLel: Downloads in der App – true = nur Konten mit Jellyfin-Recht „Herunterladen“, false = alle Konten
         buildConfigField("boolean", "DOWNLOADS_NUR_MIT_RECHT", marke.getProperty("DOWNLOADS_NUR_MIT_RECHT", "true"))
