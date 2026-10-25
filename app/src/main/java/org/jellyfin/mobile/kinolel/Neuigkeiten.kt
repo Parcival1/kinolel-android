@@ -24,6 +24,7 @@ object Neuigkeiten {
     private const val GESEHEN = "gesehen"
     private const val DATEI = "kinolel/neuigkeiten.json"
     private const val OHNE_VORGAENGER = 2
+    private const val WARTEN_AUF_SPRACHE_MS = 15_000L
 
     fun zeigenFallsNeu(activity: AppCompatActivity) {
         val vorlieben = activity.getSharedPreferences(VORLIEBEN, Context.MODE_PRIVATE)
@@ -39,7 +40,13 @@ object Neuigkeiten {
         }.getOrDefault(false)
         if (!aktualisiert) return
 
-        val eintraege = runCatching { lesen(activity, sprache(activity)) }.onFailure { Timber.w(it, "KinoLel: Neuigkeiten") }
+        // erst zeigen, wenn die Sprache von kinolel.de bekannt ist (Lel 25.10.: ungarisch, wenn KinoLel auf Ungarisch steht)
+        Sprache.wennBekannt(activity, WARTEN_AUF_SPRACHE_MS) { zeigen(activity, gesehenText, aktuell) }
+    }
+
+    private fun zeigen(activity: AppCompatActivity, gesehenText: String?, aktuell: List<Int>) {
+        if (activity.isFinishing || activity.isDestroyed) return
+        val eintraege = runCatching { lesen(activity, Sprache.aktuell(activity)) }.onFailure { Timber.w(it, "KinoLel: Neuigkeiten") }
             .getOrNull() ?: return
         val passend = eintraege
             .filter { (v, _) -> vergleiche(v, aktuell) <= 0 }
@@ -53,24 +60,19 @@ object Neuigkeiten {
             if (passend.size > 1) {
                 if (i > 0) text.append("\n")
                 val start = text.length
-                text.append(activity.getString(R.string.kinolel_neu_version, v.joinToString(".")))
+                text.append(activity.inKinoLelSprache.getString(R.string.kinolel_neu_version, v.joinToString(".")))
                 text.setSpan(StyleSpan(Typeface.BOLD), start, text.length, 0)
                 text.append("\n")
             }
             punkte.forEach { text.append("• ").append(it).append("\n") }
         }
-        AlertDialog.Builder(activity)
-            .setTitle(activity.getString(R.string.kinolel_neu_titel, BuildConfig.APP_NAME, aktuell.joinToString(".")))
+        AlertDialog.Builder(activity.inKinoLelSprache)
+            .setTitle(activity.inKinoLelSprache.getString(R.string.kinolel_neu_titel, BuildConfig.APP_NAME, aktuell.joinToString(".")))
             .setMessage(text.trimEnd('\n'))
             .setPositiveButton(R.string.kinolel_neu_ok, null)
             .show()
     }
 
-    private fun sprache(context: Context): String = when (context.resources.configuration.locales[0].language) {
-        "hu" -> "hu"
-        "en" -> "en"
-        else -> "de"
-    }
 
     /** Einträge (neueste zuerst): Version -> Stichpunkte in der Sprache (Ersatz: Deutsch) */
     private fun lesen(context: Context, sprache: String): List<Pair<List<Int>, List<String>>> {

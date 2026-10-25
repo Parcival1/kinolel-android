@@ -28,15 +28,21 @@ if [ -n "$VOR" ] && curl -sSL -o vorversion.apk "$VOR"; then
   adb shell pm grant "$PAKET" android.permission.POST_NOTIFICATIONS || true
   adb shell am start -W -n "$PAKET/org.jellyfin.mobile.MainActivity"
   sleep 12
+  # Lel 25.10.: KinoLel auf Ungarisch (wie „Magyar“ auf der Anmeldeseite), das Gerät auf Deutsch -> „Was ist neu“ ungarisch
+  python3 .github/scripts/sprache_setzen.py hu | tee rauchtest/sprache.txt || true
   adb shell am force-stop "$PAKET"
 fi
+adb shell cmd locale set-app-locales "$PAKET" --locales de-DE || true
 
 # 2. Update auf diese Version: Meldung „Neu in …“ muss erscheinen – und beim nächsten Start nicht mehr
 adb install -r "$APK"
 adb shell pm grant "$PAKET" android.permission.POST_NOTIFICATIONS || true
 adb logcat -c
 adb shell am start -W -n "$PAKET/org.jellyfin.mobile.MainActivity"
-sleep 6; systemdialog_weg; adb exec-out screencap -p > rauchtest/00-neuigkeiten.png
+# „Was ist neu“ wartet bis zu 15 s auf die Sprache von kinolel.de
+for i in $(seq 1 10); do sleep 3; systemdialog_weg; ui | grep -qE "Neu in |New in |Újdonságok" && break; done
+adb exec-out screencap -p > rauchtest/00-neuigkeiten.png
+if ui | grep -q "Újdonságok"; then echo "SPRACHE: Was ist neu ungarisch (Gerät Deutsch, KinoLel Ungarisch)" | tee -a rauchtest/sprache.txt; else echo "SPRACHE: Was ist neu NICHT ungarisch" | tee -a rauchtest/sprache.txt; fi
 if ui | grep -qE "Neu in |New in |Újdonságok"; then echo "NEUIGKEITEN: nach Update gezeigt" | tee rauchtest/neuigkeiten.txt; else if [ -z "${VOR:-}" ]; then echo "NEUIGKEITEN: nicht geprüft – Vorversion nicht gefunden (GitHub-API)" | tee rauchtest/neuigkeiten.txt; else echo "NEUIGKEITEN: FEHLT nach Update" | tee rauchtest/neuigkeiten.txt; fi; fi
 adb shell am force-stop "$PAKET"
 adb shell am start -W -n "$PAKET/org.jellyfin.mobile.MainActivity"

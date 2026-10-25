@@ -60,15 +60,15 @@ object Aktualisierung {
             val ergebnis = withContext(Dispatchers.IO) { runCatching { suchen() } }
             if (activity.isFinishing || activity.isDestroyed || zeigt) return@launch
             if (ergebnis.isFailure) {
-                if (vonHand) Toast.makeText(activity, R.string.kinolel_update_keine_verbindung, Toast.LENGTH_LONG).show()
+                if (vonHand) Toast.makeText(activity.inKinoLelSprache, R.string.kinolel_update_keine_verbindung, Toast.LENGTH_LONG).show()
                 return@launch
             }
             val neu = ergebnis.getOrNull()
             if (neu == null) {
                 if (vonHand) {
                     Toast.makeText(
-                        activity,
-                        activity.getString(R.string.kinolel_update_aktuell, BuildConfig.APP_NAME, BuildConfig.VERSION_NAME),
+                        activity.inKinoLelSprache,
+                        activity.inKinoLelSprache.getString(R.string.kinolel_update_aktuell, BuildConfig.APP_NAME, BuildConfig.VERSION_NAME),
                         Toast.LENGTH_LONG,
                     ).show()
                 }
@@ -78,9 +78,9 @@ object Aktualisierung {
                 jetzt - vorlieben.getLong("spaeter_zeit", 0) < SPAETER_MS
             if (spaeterGewaehlt && !vonHand) return@launch
             zeigt = true
-            AlertDialog.Builder(activity)
+            AlertDialog.Builder(activity.inKinoLelSprache)
                 .setTitle(R.string.kinolel_update_titel)
-                .setMessage(activity.getString(R.string.kinolel_update_text, BuildConfig.APP_NAME, neu.version))
+                .setMessage(activity.inKinoLelSprache.getString(R.string.kinolel_update_text, BuildConfig.APP_NAME, neu.version))
                 .setPositiveButton(R.string.kinolel_update_jetzt) { _, _ -> laden(activity, neu) }
                 .setNegativeButton(R.string.kinolel_update_spaeter) { _, _ -> vorlieben.edit { putString("spaeter_version", neu.version); putLong("spaeter_zeit", System.currentTimeMillis()) } }
                 .setOnDismissListener { zeigt = false }
@@ -159,7 +159,7 @@ object Aktualisierung {
             max = 100
             setPadding(64, 32, 64, 16)
         }
-        val dialog = AlertDialog.Builder(activity)
+        val dialog = AlertDialog.Builder(activity.inKinoLelSprache)
             .setTitle(R.string.kinolel_update_laedt)
             .setView(fortschritt)
             .setCancelable(false)
@@ -194,7 +194,7 @@ object Aktualisierung {
             }
             dialog.dismiss()
             if (datei == null || datei.length() < 1_000_000) {
-                Toast.makeText(activity, R.string.kinolel_update_fehler, Toast.LENGTH_LONG).show()
+                Toast.makeText(activity.inKinoLelSprache, R.string.kinolel_update_fehler, Toast.LENGTH_LONG).show()
                 return@launch
             }
             installieren(activity, datei)
@@ -207,9 +207,9 @@ object Aktualisierung {
     private fun installieren(activity: AppCompatActivity, datei: File) {
         if (!darfInstallieren(activity)) {
             ausstehend = datei
-            AlertDialog.Builder(activity)
+            AlertDialog.Builder(activity.inKinoLelSprache)
                 .setTitle(R.string.kinolel_update_erlaubnis_titel)
-                .setMessage(activity.getString(R.string.kinolel_update_erlaubnis_text, BuildConfig.APP_NAME))
+                .setMessage(activity.inKinoLelSprache.getString(R.string.kinolel_update_erlaubnis_text, BuildConfig.APP_NAME))
                 .setPositiveButton(R.string.kinolel_update_erlaubnis_oeffnen) { _, _ ->
                     activity.startActivity(
                         Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${activity.packageName}")),

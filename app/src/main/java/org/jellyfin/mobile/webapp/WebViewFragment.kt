@@ -35,6 +35,7 @@ import org.jellyfin.mobile.bridge.NativeInterface
 import org.jellyfin.mobile.bridge.NativePlayer
 import org.jellyfin.mobile.data.entity.ServerEntity
 import org.jellyfin.mobile.kinolel.FernseherLink
+import org.jellyfin.mobile.kinolel.Sprache
 import org.jellyfin.mobile.databinding.FragmentWebviewBinding
 import org.jellyfin.mobile.setup.ConnectFragment
 import org.jellyfin.mobile.utils.AndroidVersion
@@ -52,6 +53,9 @@ import org.jellyfin.mobile.utils.requestNoBatteryOptimizations
 import org.jellyfin.mobile.utils.runOnUiThread
 import org.koin.android.ext.android.inject
 import org.koin.androidx.viewmodel.ext.android.activityViewModel
+
+/** KinoLel: kurz nach dem Verbinden lesen – dann hat Jellyfin die Sprache gesetzt */
+private const val SPRACHE_LESEN_MS = 3000L
 
 class WebViewFragment : Fragment(), BackPressInterceptor, JellyfinWebChromeClient.FileChooserListener {
     val appPreferences: AppPreferences by inject()
@@ -100,6 +104,8 @@ class WebViewFragment : Fragment(), BackPressInterceptor, JellyfinWebChromeClien
             override fun onConnectedToWebapp() {
                 val webViewBinding = webViewBinding ?: return
                 val webView = webViewBinding.webView
+                // KinoLel: Sprache, die kinolel.de anzeigt, für die eigenen Texte der App merken (Was ist neu, Update …)
+                webView.postDelayed({ spracheMerken() }, SPRACHE_LESEN_MS)
                 webView.removeCallbacks(timeoutRunnable)
                 webView.removeCallbacks(showLoadingContainerRunnable)
                 connected = true
@@ -182,6 +188,20 @@ class WebViewFragment : Fragment(), BackPressInterceptor, JellyfinWebChromeClien
                 }
             }
         }
+    }
+
+    /** KinoLel: `<html lang>` von kinolel.de = angezeigte Sprache (KinoLel-Wahl bzw. Jellyfins Anzeigesprache) */
+    private fun spracheMerken() {
+        val webView = webViewBinding?.webView ?: return
+        if (!connected) return
+        webView.evaluateJavascript("document.documentElement.lang") { lang ->
+            context?.let { Sprache.merken(it, lang) }
+        }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        spracheMerken() // falls auf kinolel.de inzwischen die Sprache gewechselt wurde
     }
 
     override fun onInterceptBackPressed(): Boolean {

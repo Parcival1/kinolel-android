@@ -52,11 +52,11 @@ suspend fun MainActivity.kinolelDownloadAnfragen(itemIds: Collection<UUID>) {
         downloadManager.aufloesen(itemIds)
     } catch (e: Exception) {
         Timber.w(e, "KinoLel: Titel für Download nicht ladbar")
-        Toast.makeText(this, R.string.kinolel_dl_keine_verbindung, Toast.LENGTH_LONG).show()
+        Toast.makeText(inKinoLelSprache, R.string.kinolel_dl_keine_verbindung, Toast.LENGTH_LONG).show()
         return
     }
     if (titel.isEmpty()) {
-        Toast.makeText(this, R.string.kinolel_dl_nichts, Toast.LENGTH_LONG).show()
+        Toast.makeText(inKinoLelSprache, R.string.kinolel_dl_nichts, Toast.LENGTH_LONG).show()
         return
     }
 
@@ -117,7 +117,7 @@ private suspend fun MainActivity.qualitaetWaehlen(titel: List<BaseItemDto>, appP
             text = buildString {
                 append(bezeichnung(context, q))
                 if (groesse > 0) append(" · ").append(if (q.umgewandelt) "~" else "").append(Formatter.formatShortFileSize(context, groesse))
-                if (zuGross) append(" · ").append(getString(R.string.kinolel_dl_zu_gross))
+                if (zuGross) append(" · ").append(inKinoLelSprache.getString(R.string.kinolel_dl_zu_gross))
             }
             isEnabled = !zuGross
             setPadding(paddingLeft, dp(6), paddingRight, dp(6))
@@ -133,9 +133,9 @@ private suspend fun MainActivity.qualitaetWaehlen(titel: List<BaseItemDto>, appP
         addView(
             TextView(context).apply {
                 text = buildString {
-                    append(getString(R.string.kinolel_dl_frei, Formatter.formatShortFileSize(context, frei)))
-                    if (angebot.size > 1) append("\n").append(getString(R.string.kinolel_dl_hinweis_klein))
-                    if (appPreferences.downloadMethod == DownloadMethod.WIFI_ONLY) append("\n").append(getString(R.string.kinolel_dl_nur_wlan))
+                    append(inKinoLelSprache.getString(R.string.kinolel_dl_frei, Formatter.formatShortFileSize(context, frei)))
+                    if (angebot.size > 1) append("\n").append(inKinoLelSprache.getString(R.string.kinolel_dl_hinweis_klein))
+                    if (appPreferences.downloadMethod == DownloadMethod.WIFI_ONLY) append("\n").append(inKinoLelSprache.getString(R.string.kinolel_dl_nur_wlan))
                 }
                 setPadding(0, dp(12), 0, 0)
                 alpha = 0.75f
@@ -146,13 +146,13 @@ private suspend fun MainActivity.qualitaetWaehlen(titel: List<BaseItemDto>, appP
     val einzeln = titel.singleOrNull()
     val ueberschrift = when {
         einzeln != null -> einzeln.seriesName?.let { "$it – ${einzeln.name}" } ?: einzeln.name.orEmpty()
-        titel.all { it.type == BaseItemKind.EPISODE } -> getString(R.string.kinolel_dl_folgen, titel.size)
-        else -> getString(R.string.kinolel_dl_titel, titel.size)
+        titel.all { it.type == BaseItemKind.EPISODE } -> inKinoLelSprache.getString(R.string.kinolel_dl_folgen, titel.size)
+        else -> inKinoLelSprache.getString(R.string.kinolel_dl_titel, titel.size)
     }
 
     return suspendCancellableCoroutine { fortsetzung ->
-        val dialog = AlertDialog.Builder(this)
-            .setTitle(getString(R.string.kinolel_dl_ueberschrift, ueberschrift))
+        val dialog = AlertDialog.Builder(inKinoLelSprache)
+            .setTitle(inKinoLelSprache.getString(R.string.kinolel_dl_ueberschrift, ueberschrift))
             .setView(inhalt)
             .setPositiveButton(R.string.kinolel_dl_starten) { _, _ ->
                 val gewaehlt = DownloadQualitaet.von(gruppe.checkedRadioButtonId - 1000)
