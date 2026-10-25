@@ -75,17 +75,16 @@ jobs:
           path: build/kinolel/*.apk
           if-no-files-found: error
 
-      - name: Vorab-Version veröffentlichen (nur bei Tag v*)
+      - name: Vorab-Version als Entwurf anlegen (nur bei Tag v*; veröffentlicht erst nach grünem Test)
         if: startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" build/kinolel/*.apk --prerelease --title "Testversion $GITHUB_REF_NAME (Android)" --notes-file TESTANLEITUNG.md
+        run: gh release create "$GITHUB_REF_NAME" build/kinolel/*.apk --draft --prerelease --title "Testversion $GITHUB_REF_NAME (Android)" --notes-file TESTANLEITUNG.md
 
   rauchtest:
     name: Rauchtest im Emulator
     needs: build
     runs-on: ubuntu-26.04
-    continue-on-error: true
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -129,6 +128,12 @@ jobs:
           name: rauchtest-bilder
           path: rauchtest/
 
+      - name: Ergebnis prüfen
+        run: |
+          cat rauchtest/sprache.txt rauchtest/neuigkeiten.txt 2>/dev/null || true
+          if grep -hE "FEHLT|FEHLER|NICHT ungarisch|nicht geprüft" rauchtest/sprache.txt rauchtest/neuigkeiten.txt; then echo "::error::Rauchtest mit Fehlern"; exit 1; fi
+          python3 -c "import json,sys; e=json.load(open('rauchtest/applink/ergebnis.json')); f=[k for k,v in e.items() if not (v.get('ok') if isinstance(v,dict) else v)]; print('App-Link-Fehler:', f) if f else print('App-Link alles OK'); sys.exit(1 if f else 0)"
+
   # KinoLel (Lel 20.10.2026): Downloads wie bei Netflix – Herunterladen, Flugmodus, offline abspielen, Position nachmelden.
   # Läuft nur mit dem Secret KINOLEL_TEST_PW (Passwort des Hilfskontos, setzt Lel); sonst übersprungen.
   # Nur bei Versionen oder mit „[download-test]“ in der Commit-Nachricht (lädt Titel herunter – schont Server und NAS).
@@ -138,7 +143,6 @@ jobs:
     needs: build
     if: startsWith(github.ref, 'refs/tags/v') || contains(github.event.head_commit.message, '[download-test]')
     runs-on: ubuntu-26.04
-    continue-on-error: true
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -180,3 +184,19 @@ jobs:
           path: downloadtest/
           retention-days: 3
           if-no-files-found: ignore
+
+      - name: Ergebnis prüfen
+        run: |
+          python3 -c "import json,sys; e=json.load(open('downloadtest/ergebnis.json')); f=[x for x in e.get('schritte',[]) if not x.get('ok')]; print('Fehler:', f) if f else print('alles OK'); sys.exit(1 if f else 0)"
+
+  veroeffentlichen:
+    # Lel 25.10.: erst nach grünem Test sichtbar (Entwurf -> veröffentlicht); apps.json übernimmt nur veröffentlichte
+    name: Release veröffentlichen (nur bei Tag v*, nach grünem Test)
+    needs: [build, rauchtest, downloadtest]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Entwurf veröffentlichen
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft=false

@@ -409,8 +409,15 @@ def main():
             if gemeldet and gemeldet.get('PlaybackPositionTicks', 0) > 0:
                 break
             time.sleep(5)
-    schritt('Offline-Position beim Server angekommen', gemeldet and gemeldet.get('PlaybackPositionTicks', 0) > 0,
-            position_s=gemeldet and round(gemeldet.get('PlaybackPositionTicks', 0) / 1e7))
+    beim_server = bool(gemeldet and gemeldet.get('PlaybackPositionTicks', 0) > 0)
+    # Nach dem Flugmodus findet der Test die WebView-DevTools manchmal nicht wieder (Lauf v1.0) – dann zählt das
+    # Protokoll der App: „KinoLel-Offline: Position von <id> gemeldet“ kommt erst nach der Antwort des Servers
+    laut_app = not beim_server and f"Position von {a['id']} gemeldet" in adb('logcat', '-d')
+    schritt('Offline-Position beim Server angekommen', beim_server or laut_app,
+            position_s=gemeldet and round(gemeldet.get('PlaybackPositionTicks', 0) / 1e7),
+            belegt='Server' if beim_server else ('Protokoll der App (DevTools nicht erreichbar)' if laut_app else 'nein'))
+    if not cdp:
+        print('Hinweis: ohne DevTools kein Aufräumen (Downloads, Serverstand, Abmelden) – Testkonto prüfen', flush=True)
     bild('50-wieder-online')
 
     # 5. Aufräumen: Downloads per Papierkorb löschen, Serverstand zurücksetzen, abmelden
