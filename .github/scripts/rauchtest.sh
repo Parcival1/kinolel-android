@@ -17,6 +17,9 @@ systemdialog_weg() {
   done
 }
 
+# Fehlerdialoge anderer Apps (ANR des Launchers im Emulator) ausblenden – sie verdecken sonst die Meldungen der App
+adb shell settings put global hide_error_dialogs 1 || true
+
 # 1. Vorversion (letztes Release) installieren und einmal starten
 # Vorversion = neuestes Release, das NICHT die gerade gebaute Version ist (beim Tag-Lauf ist sie schon veröffentlicht).
 # Über gh mit Build-Token (die GitHub-API ohne Anmeldung liefert im Runner oft nichts).
@@ -40,10 +43,15 @@ adb shell pm grant "$PAKET" android.permission.POST_NOTIFICATIONS || true
 adb logcat -c
 adb shell am start -W -n "$PAKET/org.jellyfin.mobile.MainActivity"
 # „Was ist neu“ wartet bis zu 15 s auf die Sprache von kinolel.de
-for i in $(seq 1 10); do sleep 3; systemdialog_weg; ui | grep -qE "Neu in |New in |Újdonságok" && break; done
-adb exec-out screencap -p > rauchtest/00-neuigkeiten.png
-if ui | grep -q "Újdonságok"; then echo "SPRACHE: Was ist neu ungarisch (Gerät Deutsch, KinoLel Ungarisch)" | tee -a rauchtest/sprache.txt; else echo "SPRACHE: Was ist neu NICHT ungarisch" | tee -a rauchtest/sprache.txt; fi
-if ui | grep -qE "Neu in |New in |Újdonságok"; then echo "NEUIGKEITEN: nach Update gezeigt" | tee rauchtest/neuigkeiten.txt; else if [ -z "${VOR:-}" ]; then echo "NEUIGKEITEN: nicht geprüft – Vorversion nicht gefunden (GitHub-API)" | tee rauchtest/neuigkeiten.txt; else echo "NEUIGKEITEN: FEHLT nach Update" | tee rauchtest/neuigkeiten.txt; fi; fi
+# Die Systemmeldung kann jederzeit wiederkommen -> den Stand auswerten, in dem die Meldung zu sehen war
+: > rauchtest/neuigkeiten-ui.xml
+for i in $(seq 1 10); do
+  sleep 3; systemdialog_weg; xml=$(ui)
+  if echo "$xml" | grep -qE "Neu in |New in |Újdonságok"; then echo "$xml" > rauchtest/neuigkeiten-ui.xml; adb exec-out screencap -p > rauchtest/00-neuigkeiten.png; break; fi
+done
+[ -s rauchtest/neuigkeiten-ui.xml ] || adb exec-out screencap -p > rauchtest/00-neuigkeiten.png
+if grep -q "Újdonságok" rauchtest/neuigkeiten-ui.xml; then echo "SPRACHE: Was ist neu ungarisch (Gerät Deutsch, KinoLel Ungarisch)" | tee -a rauchtest/sprache.txt; else echo "SPRACHE: Was ist neu NICHT ungarisch" | tee -a rauchtest/sprache.txt; fi
+if grep -qE "Neu in |New in |Újdonságok" rauchtest/neuigkeiten-ui.xml; then echo "NEUIGKEITEN: nach Update gezeigt" | tee rauchtest/neuigkeiten.txt; else if [ -z "${VOR:-}" ]; then echo "NEUIGKEITEN: nicht geprüft – Vorversion nicht gefunden (GitHub-API)" | tee rauchtest/neuigkeiten.txt; else echo "NEUIGKEITEN: FEHLT nach Update" | tee rauchtest/neuigkeiten.txt; fi; fi
 adb shell am force-stop "$PAKET"
 adb shell am start -W -n "$PAKET/org.jellyfin.mobile.MainActivity"
 sleep 6
