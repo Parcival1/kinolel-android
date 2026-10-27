@@ -128,8 +128,27 @@ TRAILER_ZUSTAND = """(function(){
   var p = pm && pm.getCurrentPlayer && pm.getCurrentPlayer();
   return {hash: location.hash.slice(0, 70), ebenen: ebenen.length, ebeneSichtbar: ebenen.some(sichtbar),
           spielt: !!(pm && pm.isPlaying && pm.isPlaying()), player: p ? p.id : null,
-          hideScroll: document.body.classList.contains('hide-scroll')};
+          hideScroll: document.body.classList.contains('hide-scroll'),
+          fehlerDialog: Array.from(document.querySelectorAll('.dialogContainer .dialog')).some(sichtbar)};
 })()"""
+
+
+def angehalten(cdp, sekunden):
+    """DevTools-Ereignisse lesen und von „Fetch“ angehaltene Anfragen merken (werden später fortgesetzt)"""
+    ids = []
+    ende = time.time() + sekunden
+    cdp.ws.settimeout(0.5)
+    try:
+        while time.time() < ende:
+            try:
+                a = json.loads(cdp.ws.recv())
+            except websocket.WebSocketTimeoutException:
+                continue
+            if a.get('method') == 'Fetch.requestPaused':
+                ids.append(a['params']['requestId'])
+    finally:
+        cdp.ws.settimeout(60)
+    return ids
 
 
 def feld_setzen(cdp, selektor, wert):
@@ -256,7 +275,43 @@ def main():
         film = cdp.js(FILM_MIT_TRAILER)
         if not merke('Film mit YouTube-Trailer gefunden', bool(film), film):
             return
-        for warte in (0.5, 1.5, 3.0):
+        # a) Lels Fall gezielt: das YouTube-Skript (iframe_api) hält DevTools zurück -> der Trailer „lädt noch“, als
+        #    Zurück kommt; danach lädt es fertig (im Emulator lässt YouTube diesen Trailer sonst gar nicht erst laden)
+        cdp.js(f"location.hash='#/details?id={film['id']}';true")
+        warten(cdp, "!!document.querySelector('.btnPlayTrailer:not(.hide)')", 40)
+        cdp.js("location.reload();true")  # frische Seite: YouTube-Skript noch nicht geladen
+        time.sleep(3)
+        if warten(cdp, "!!document.querySelector('.btnPlayTrailer:not(.hide)')", 60):
+            time.sleep(2)
+            cdp.rufe('Fetch.enable', patterns=[{'urlPattern': '*youtube.com/iframe_api*'}])
+            cdp.js("document.querySelector('.btnPlayTrailer:not(.hide)').click();true")
+            gehalten = angehalten(cdp, 2)
+            vorher = cdp.js(TRAILER_ZUSTAND) or {}
+            sh('input keyevent KEYCODE_BACK')
+            gehalten += angehalten(cdp, 5)
+            for rid in gehalten:
+                cdp.rufe('Fetch.continueRequest', requestId=rid)
+            cdp.rufe('Fetch.disable')
+            time.sleep(10)
+            z = cdp.js(TRAILER_ZUSTAND) or {}
+            z['youtube_zurueckgehalten'] = len(gehalten)
+            z['vor_zurueck'] = vorher
+            bild('applink-5-trailer-laedt-noch')
+            sauber = (z.get('hash') or '').startswith('#/details') and film['id'] in (z.get('hash') or '') \
+                and not z.get('ebeneSichtbar') and not z.get('spielt') and not z.get('fehlerDialog')
+            merke('Trailer verlassen, während YouTube noch lädt: Detailseite ohne Überlagerung', sauber, z)
+            if not sauber:
+                for _ in range(2):
+                    sh('input keyevent KEYCODE_BACK')
+                    time.sleep(4)
+                print('Nach zwei weiteren Zurück:', cdp.js(TRAILER_ZUSTAND))
+                bild('applink-5-trailer-laedt-noch-danach')
+                cdp.js("(function(){var pm=window.ExoPlayer&&window.ExoPlayer.playbackManager;try{pm&&pm.stop()}catch(e){};"
+                       "document.querySelectorAll('.youtubePlayerContainer').forEach(function(e){e.remove()});return true})()")
+        else:
+            merke('Trailer-Knopf nach Neuladen da', False, cdp.js('location.hash'))
+        # b) ohne Eingriff: Zurück nach 0,5 und 3 s
+        for warte in (0.5, 3.0):
             cdp.js(f"location.hash='#/details?id={film['id']}';true")
             if not warten(cdp, "!!document.querySelector('.btnPlayTrailer:not(.hide)')", 40):
                 merke(f'Trailer-Knopf da ({warte} s)', False, cdp.js('location.hash'))

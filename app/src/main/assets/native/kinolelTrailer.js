@@ -62,9 +62,31 @@
 
     // Seitenwechsel (z. B. Zurück-Pfeil der Kopfleiste) während des Ladens
     window.addEventListener('hashchange', () => {
-        if (imPlayer()) { laedt = false; return; } // Trailer läuft normal
+        if (imPlayer()) {
+            laedt = false; // Trailer läuft normal – außer er wurde vorher abgebrochen (dann stoppt aufraeumen ihn)
+            return;
+        }
         if (laedt) abbrechen('Seite verlassen');
     });
+
+    // Lädt das YouTube-Skript erst nach dem Abbruch fertig, würde das Modul den Player trotzdem anlegen (und z. B. eine
+    // Fehlermeldung zeigen). YouTube ruft dafür window.onYouTubeIframeAPIReady auf – nach einem Abbruch nicht weiterreichen.
+    let bereitRueckruf;
+    try {
+        Object.defineProperty(window, 'onYouTubeIframeAPIReady', {
+            configurable: true,
+            get() {
+                return function () {
+                    if (abgebrochen && Date.now() - abgebrochen < 60000) {
+                        console.info('KinoLel: YouTube nach Abbruch geladen – Trailer wird nicht mehr gestartet');
+                        return undefined;
+                    }
+                    return bereitRueckruf ? bereitRueckruf.apply(this, arguments) : undefined;
+                };
+            },
+            set(fn) { bereitRueckruf = fn; }
+        });
+    } catch (e) { /* ältere WebView: dann greift nur das Aufräumen */ }
 
     // YouTube-Ebene, die nach dem Abbruch noch fertig lädt
     new MutationObserver(() => {
