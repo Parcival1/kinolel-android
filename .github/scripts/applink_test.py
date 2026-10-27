@@ -220,6 +220,9 @@ def main():
 
     # 2. Kaltstart über den Link
     sh(f'am force-stop {PAKET}')
+    # Die App fragt nach jedem Start einmal nach Bluetooth (Dialog über der Weboberfläche) – vorab erlauben, sonst
+    # schließt ein Zurück im Test nur diesen Dialog statt in der Weboberfläche anzukommen
+    sh(f'pm grant {PAKET} android.permission.BLUETOOTH_CONNECT')
     aus = link_oeffnen('123456')
     merke('Link öffnet die KinoLel-App (kein Browser)', f'{PAKET}/' in aus,
           ' '.join(z.strip() for z in aus.splitlines() if z.strip().startswith(('Activity', 'Status'))))
@@ -312,6 +315,7 @@ def main():
                 "(function(){var n=window.NavigationHelper;window.__zurueck=[];if(n&&!n.__gezaehlt){var o=n.goBack;"
                 "n.goBack=function(){window.__zurueck.push(location.hash);return o.apply(n,arguments)};n.__gezaehlt=1}"
                 "return n?'da':'fehlt'})()")
+            vorher['fenster'] = re.findall(r'mCurrentFocus=\S+ \S+ (\S+)\}', sh('dumpsys window'))[:1]
             bild('applink-5-trailer-vor-zurueck')
             sh('logcat -c')
             sh('input keyevent KEYCODE_BACK')
@@ -345,7 +349,7 @@ def main():
                        "document.querySelectorAll('.youtubePlayerContainer').forEach(function(e){e.remove()});return true})()")
         else:
             merke('Trailer-Knopf nach Neuladen da', False, cdp.js('location.hash'))
-        # b) ohne Eingriff: Zurück nach 0,5 und 3 s
+        # b) ohne Eingriff (YouTube-Attrappe aus a ist noch geladen): Zurück nach 0,5 s (lädt noch) und 3 s (spielt)
         for warte in (0.5, 3.0):
             cdp.js(f"location.hash='#/details?id={film['id']}';true")
             if not warten(cdp, "!!document.querySelector('.btnPlayTrailer:not(.hide)')", 40):
@@ -358,8 +362,9 @@ def main():
             time.sleep(10)  # ein noch ladender Trailer hätte jetzt seine Ebene über die Seite gelegt
             z = cdp.js(TRAILER_ZUSTAND) or {}
             bild(f'applink-5-trailer-{warte}s')
+            z['protokoll'] = cdp.js("window.KinoLelTrailer ? window.KinoLelTrailer.protokoll.slice(-6) : null")
             sauber = (z.get('hash') or '').startswith('#/details') and film['id'] in (z.get('hash') or '') \
-                and not z.get('ebeneSichtbar') and not z.get('spielt')
+                and not z.get('ebeneSichtbar') and not z.get('spielt') and not z.get('fehlerDialog')
             merke(f'Trailer nach {warte} s verlassen: Detailseite ohne Überlagerung', sauber, z)
             if not sauber:  # wie Lel: kommt man mit weiterem Zurück noch heraus?
                 for _ in range(2):
