@@ -35,6 +35,7 @@ import org.jellyfin.mobile.bridge.NativeInterface
 import org.jellyfin.mobile.bridge.NativePlayer
 import org.jellyfin.mobile.data.entity.ServerEntity
 import org.jellyfin.mobile.kinolel.FernseherLink
+import org.jellyfin.mobile.kinolel.TitelLink
 import org.jellyfin.mobile.kinolel.Sprache
 import org.jellyfin.mobile.databinding.FragmentWebviewBinding
 import org.jellyfin.mobile.setup.ConnectFragment
@@ -185,6 +186,16 @@ class WebViewFragment : Fragment(), BackPressInterceptor, JellyfinWebChromeClien
                     while (!connected) delay(FernseherLink.WARTEN_MS)
                     webViewBinding?.webView?.evaluateJavascript(FernseherLink.navigation(code), null)
                     FernseherLink.erledigt()
+                }
+            }
+        }
+        // KinoLel (Lel 27.10.2026): Titel aus KinoLel Wünsche („Auf KinoLel abspielen“) öffnen, sobald die Weboberfläche bereit ist
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                TitelLink.ziel.filterNotNull().collect { ziel ->
+                    while (!connected) delay(FernseherLink.WARTEN_MS)
+                    webViewBinding?.webView?.evaluateJavascript(TitelLink.navigation(ziel), null)
+                    TitelLink.erledigt()
                 }
             }
         }

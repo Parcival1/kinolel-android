@@ -207,6 +207,27 @@ def main():
         time.sleep(2)
         bild('applink-3-laufende-app')
         merke('App lief schon: zweiter Link trägt Code 654321 ein', da, (cdp.js(ZUSTAND) or {}))
+
+        # 4b. „Auf KinoLel abspielen“ aus KinoLel Wünsche (Lel 27.10.): expliziter Aufruf dieser App mit der Adresse der
+        #     Wunschseite -> Detailseite des Titels; einmal bei laufender App, einmal nach Beenden (Kaltstart)
+        titel = cdp.js("ApiClient.getItems(ApiClient.getCurrentUserId(),{IncludeItemTypes:'Movie',Recursive:true,Limit:1,"
+                       "SortBy:'DateCreated',SortOrder:'Descending'}).then(function(r){var i=(r.Items||[])[0];"
+                       "return i?{id:i.Id,server:ApiClient.serverId()}:null},function(){return null})")
+        if not merke('Titel für den Wünsche-Link gefunden', bool(titel)):
+            return
+        for art, adresse in (('laufende App', f"https://kinolel.de/web/#/details?id={titel['id']}&serverId={titel['server']}"),
+                             ('Kaltstart, Seerr-Form #!', f"https://kinolel.de/web/index.html#!/details?id={titel['id']}&context=home&serverId={titel['server']}")):
+            if art.startswith('Kaltstart'):
+                sh(f'am force-stop {PAKET}')
+                time.sleep(2)
+            aus = adb('shell', 'am', 'start', '-W', '-n', f'{PAKET}/org.jellyfin.mobile.MainActivity',
+                      '-a', 'android.intent.action.VIEW', '-d', f"'{adresse}'")
+            if art.startswith('Kaltstart'):
+                cdp = cdp_verbinden()
+            da = bool(cdp) and warten(cdp, f"/^#\\/details\\?id={titel['id']}/.test(location.hash)", 45)
+            time.sleep(3)
+            bild('applink-4-titel-' + ('kalt' if art.startswith('Kaltstart') else 'laufend'))
+            merke(f'Wünsche-Link öffnet die Detailseite ({art})', da, (cdp.js('location.hash') if cdp else '')[:80])
     finally:
         # 5. abmelden (Zugang nie ausgeben)
         print('Abmelden:', cdp.js("(function(){try{var c=JSON.parse(localStorage.getItem('jellyfin_credentials'));var s=c.Servers[0];"

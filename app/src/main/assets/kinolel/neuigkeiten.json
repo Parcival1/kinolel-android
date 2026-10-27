@@ -1,6 +1,18 @@
 {
   "versionen": [
     {
+      "version": "1.1",
+      "de": [
+        "„Auf KinoLel abspielen“ in KinoLel Wünsche öffnet den Titel jetzt direkt in dieser App."
+      ],
+      "hu": [
+        "Ha a KinoLel Kívánságokban a lejátszás gombra koppintasz, a cím mostantól közvetlenül ebben az alkalmazásban nyílik meg."
+      ],
+      "en": [
+        "“Play on KinoLel” in KinoLel Wünsche now opens the title right in this app."
+      ]
+    },
+    {
       "version": "1.0",
       "de": [
         "Meldungen der App (zum Beispiel diese hier und Hinweise zu Updates) erscheinen jetzt in der Sprache, die du in KinoLel gewählt hast. Außerdem Fehlerbehebungen und Verbesserungen."
