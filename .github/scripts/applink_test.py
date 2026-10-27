@@ -111,6 +111,27 @@ FELD_SETZEN = ("function(w){Object.getOwnPropertyDescriptor(HTMLInputElement.pro
                "this.dispatchEvent(new Event('input',{bubbles:true}));this.dispatchEvent(new Event('change',{bubbles:true}));}")
 
 
+FILM_MIT_TRAILER = """(async function(){
+  var u = ApiClient.getCurrentUserId();
+  var yt = function(x){ return (x.RemoteTrailers||[]).some(function(t){ return /youtube/.test(t.Url||''); }); };
+  var r = await ApiClient.getItems(u, {SearchTerm:'Lord of War', IncludeItemTypes:'Movie', Recursive:true, Limit:5, Fields:'RemoteTrailers'});
+  var i = (r.Items||[]).find(yt);
+  if (!i) { r = await ApiClient.getItems(u, {IncludeItemTypes:'Movie', Recursive:true, Limit:200, Fields:'RemoteTrailers', SortBy:'DateCreated', SortOrder:'Descending'}); i = (r.Items||[]).find(yt); }
+  return i ? {id: i.Id, name: i.Name} : null;
+})()"""
+
+TRAILER_ZUSTAND = """(function(){
+  function sichtbar(e){ if(!e) return false; var s=getComputedStyle(e), r=e.getBoundingClientRect();
+    return s.display!=='none' && s.visibility!=='hidden' && parseFloat(s.opacity||'1')>0.05 && r.width>0 && r.height>0; }
+  var ebenen = Array.from(document.querySelectorAll('.youtubePlayerContainer'));
+  var pm = window.ExoPlayer && window.ExoPlayer.playbackManager;
+  var p = pm && pm.getCurrentPlayer && pm.getCurrentPlayer();
+  return {hash: location.hash.slice(0, 70), ebenen: ebenen.length, ebeneSichtbar: ebenen.some(sichtbar),
+          spielt: !!(pm && pm.isPlaying && pm.isPlaying()), player: p ? p.id : null,
+          hideScroll: document.body.classList.contains('hide-scroll')};
+})()"""
+
+
 def feld_setzen(cdp, selektor, wert):
     feld = cdp.rufe('Runtime.evaluate', expression=f"document.querySelector('{selektor}')").get('result', {})
     if not feld.get('objectId'):
@@ -228,6 +249,36 @@ def main():
             time.sleep(3)
             bild('applink-4-titel-' + ('kalt' if art.startswith('Kaltstart') else 'laufend'))
             merke(f'Wünsche-Link öffnet die Detailseite ({art})', da, (cdp.js('location.hash') if cdp else '')[:80])
+
+        # 4c. Trailer verlassen, während er noch lädt (Lel 27.10.: „… Interfaces sich überlagern, da ein Trailer noch am
+        #     Laden ist. Kein Ausweg außer App-Neustart.“) – YouTube-Trailer, Zurück nach 0,5 / 1,5 / 3 s:
+        #     danach Detailseite, keine sichtbare YouTube-Ebene, nichts läuft
+        film = cdp.js(FILM_MIT_TRAILER)
+        if not merke('Film mit YouTube-Trailer gefunden', bool(film), film):
+            return
+        for warte in (0.5, 1.5, 3.0):
+            cdp.js(f"location.hash='#/details?id={film['id']}';true")
+            if not warten(cdp, "!!document.querySelector('.btnPlayTrailer:not(.hide)')", 40):
+                merke(f'Trailer-Knopf da ({warte} s)', False, cdp.js('location.hash'))
+                continue
+            time.sleep(2)
+            cdp.js("document.querySelector('.btnPlayTrailer:not(.hide)').click();true")
+            time.sleep(warte)
+            sh('input keyevent KEYCODE_BACK')
+            time.sleep(10)  # ein noch ladender Trailer hätte jetzt seine Ebene über die Seite gelegt
+            z = cdp.js(TRAILER_ZUSTAND) or {}
+            bild(f'applink-5-trailer-{warte}s')
+            sauber = (z.get('hash') or '').startswith('#/details') and film['id'] in (z.get('hash') or '') \
+                and not z.get('ebeneSichtbar') and not z.get('spielt')
+            merke(f'Trailer nach {warte} s verlassen: Detailseite ohne Überlagerung', sauber, z)
+            if not sauber:  # wie Lel: kommt man mit weiterem Zurück noch heraus?
+                for _ in range(2):
+                    sh('input keyevent KEYCODE_BACK')
+                    time.sleep(4)
+                print('Nach zwei weiteren Zurück:', cdp.js(TRAILER_ZUSTAND))
+                bild(f'applink-5-trailer-{warte}s-danach')
+                cdp.js("(function(){var pm=window.ExoPlayer&&window.ExoPlayer.playbackManager;try{pm&&pm.stop()}catch(e){};"
+                       "document.querySelectorAll('.youtubePlayerContainer').forEach(function(e){e.remove()});return true})()")
     finally:
         # 5. abmelden (Zugang nie ausgeben)
         print('Abmelden:', cdp.js("(function(){try{var c=JSON.parse(localStorage.getItem('jellyfin_credentials'));var s=c.Servers[0];"

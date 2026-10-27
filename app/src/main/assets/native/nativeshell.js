@@ -136,3 +136,5 @@ window.NativeShell.AppHost = {
 
 // KinoLel (Lel 20.10.2026): Knopf „Herunterladen“ wie bei Netflix (native/kinolelDownloads.js)
 import('/native/kinolelDownloads.js').catch((e) => console.warn('KinoLel-Downloads nicht geladen', e));
+// KinoLel (Lel 27.10.2026): Trailer verlassen, während er noch lädt (native/kinolelTrailer.js)
+import('/native/kinolelTrailer.js').catch((e) => console.warn('KinoLel-Trailer nicht geladen', e));
