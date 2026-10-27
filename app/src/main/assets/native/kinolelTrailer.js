@@ -141,6 +141,7 @@
 
     // Seitenwechsel (z. B. Zurück-Pfeil der Kopfleiste) während des Ladens
     window.addEventListener('hashchange', () => {
+        merken('Seite ' + location.hash.slice(0, 24));
         if (imPlayer()) {
             laedt = false;
             return;
@@ -179,7 +180,9 @@
             const yt = youtubeModul();
             const sichtbar = ebenen().length > 0;
             const modulLaedt = !!(yt && yt._currentSrc && !yt.started);
-            merken('Zurück (lädt: ' + laedt + ', Modul lädt: ' + modulLaedt + ', Ebene: ' + sichtbar + ')');
+            const router = window.Emby && window.Emby.Page;
+            merken('Zurück (lädt: ' + laedt + ', Modul lädt: ' + modulLaedt + ', Ebene: ' + sichtbar + ', Verlauf: ' +
+                history.length + (router && router.canGoBack && !router.canGoBack() ? ', kein Zurück möglich' : '') + ')');
             if (!imPlayer() && (laedt || modulLaedt || sichtbar)) {
                 abbrechen('Zurück');
                 return true;

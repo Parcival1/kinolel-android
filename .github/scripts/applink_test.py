@@ -362,7 +362,8 @@ def main():
             time.sleep(10)  # ein noch ladender Trailer hätte jetzt seine Ebene über die Seite gelegt
             z = cdp.js(TRAILER_ZUSTAND) or {}
             bild(f'applink-5-trailer-{warte}s')
-            z['protokoll'] = cdp.js("window.KinoLelTrailer ? window.KinoLelTrailer.protokoll.slice(-6) : null")
+            z['protokoll'] = cdp.js("window.KinoLelTrailer ? window.KinoLelTrailer.protokoll.slice(-10) : null")
+            z['verlauf'] = cdp.js('history.length')
             sauber = (z.get('hash') or '').startswith('#/details') and film['id'] in (z.get('hash') or '') \
                 and not z.get('ebeneSichtbar') and not z.get('spielt') and not z.get('fehlerDialog')
             merke(f'Trailer nach {warte} s verlassen: Detailseite ohne Überlagerung', sauber, z)
@@ -370,7 +371,10 @@ def main():
                 for _ in range(2):
                     sh('input keyevent KEYCODE_BACK')
                     time.sleep(4)
-                print('Nach zwei weiteren Zurück:', cdp.js(TRAILER_ZUSTAND))
+                danach = cdp.js(TRAILER_ZUSTAND) or {}
+                danach['protokoll'] = cdp.js("window.KinoLelTrailer ? window.KinoLelTrailer.protokoll.slice(-6) : null")
+                print('Nach zwei weiteren Zurück:', danach)
+                merke(f'Trailer nach {warte} s: Zustand nach zwei weiteren Zurück (nur Info)', True, danach)
                 bild(f'applink-5-trailer-{warte}s-danach')
                 cdp.js("(function(){var pm=window.ExoPlayer&&window.ExoPlayer.playbackManager;try{pm&&pm.stop()}catch(e){};"
                        "document.querySelectorAll('.youtubePlayerContainer').forEach(function(e){e.remove()});return true})()")
