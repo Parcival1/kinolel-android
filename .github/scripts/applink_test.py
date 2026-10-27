@@ -308,6 +308,12 @@ def main():
             cdp.js("document.querySelector('.btnPlayTrailer:not(.hide)').click();true")
             gehalten = angehalten(cdp, 2)
             vorher = cdp.js(TRAILER_ZUSTAND) or {}
+            vorher['navigationHelper'] = cdp.js(
+                "(function(){var n=window.NavigationHelper;window.__zurueck=[];if(n&&!n.__gezaehlt){var o=n.goBack;"
+                "n.goBack=function(){window.__zurueck.push(location.hash);return o.apply(n,arguments)};n.__gezaehlt=1}"
+                "return n?'da':'fehlt'})()")
+            bild('applink-5-trailer-vor-zurueck')
+            sh('logcat -c')
             sh('input keyevent KEYCODE_BACK')
             gehalten += angehalten(cdp, 5)
             for rid in gehalten:  # statt YouTube: Attrappe, die wie ein abspielbarer Trailer reagiert
@@ -321,6 +327,10 @@ def main():
             z['vor_zurueck'] = vorher
             z['protokoll'] = cdp.js("window.KinoLelTrailer ? window.KinoLelTrailer.protokoll : 'ohne KinoLel-Trailer-Skript'")
             z['attrappe'] = cdp.js("window.__ytAttrappe || null")
+            z['goBack_aufrufe'] = cdp.js("window.__zurueck || null")
+            with open(os.path.join(AUS, 'logcat-trailer.txt'), 'w', encoding='utf-8') as f:
+                f.write('\n'.join(z_ for z_ in adb('logcat', '-d').splitlines()
+                                   if 'WebView' in z_ or 'KinoLel' in z_ or 'Back' in z_ or 'jellyfin' in z_.lower())[-400:])
             bild('applink-5-trailer-laedt-noch')
             sauber = (z.get('hash') or '').startswith('#/details') and film['id'] in (z.get('hash') or '') \
                 and not z.get('ebeneSichtbar') and not z.get('spielt') and not z.get('fehlerDialog')
