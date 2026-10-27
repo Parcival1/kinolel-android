@@ -139,15 +139,30 @@
         if (e.target && e.target.closest && e.target.closest('.btnPlayTrailer')) neuerVersuch('Knopf');
     }, true);
 
-    // Seitenwechsel (z. B. Zurück-Pfeil der Kopfleiste) während des Ladens
-    window.addEventListener('hashchange', () => {
-        merken('Seite ' + location.hash.slice(0, 24));
+    // Seitenwechsel (z. B. Zurück-Pfeil der Kopfleiste) während des Ladens – die Weboberfläche wechselt Seiten über den
+    // Browser-Verlauf (pushState), ohne „hashchange“
+    let letzteSeite = location.hash;
+    function seiteGewechselt(wie) {
+        if (location.hash === letzteSeite) return;
+        letzteSeite = location.hash;
+        merken('Seite ' + location.hash.slice(0, 24) + ' (' + wie + ')');
         if (imPlayer()) {
             laedt = false;
             return;
         }
         if (laedt) abbrechen('Seite verlassen');
-    });
+    }
+    window.addEventListener('popstate', () => seiteGewechselt('Verlauf'));
+    window.addEventListener('hashchange', () => seiteGewechselt('Adresse'));
+    for (const art of ['pushState', 'replaceState']) {
+        const original = history[art];
+        if (typeof original !== 'function') continue;
+        history[art] = function () {
+            const ergebnis = original.apply(this, arguments);
+            try { seiteGewechselt(art); } catch (e) { /* egal */ }
+            return ergebnis;
+        };
+    }
 
     // YouTube ruft window.onYouTubeIframeAPIReady auf, sobald sein Skript da ist (bzw. das Modul sofort, wenn es schon
     // da ist): YouTube-Player beobachten und nach einem Abbruch gar nicht erst anlegen

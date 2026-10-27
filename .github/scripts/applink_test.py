@@ -223,6 +223,8 @@ def main():
     # Die App fragt nach jedem Start einmal nach Bluetooth (Dialog über der Weboberfläche) – vorab erlauben, sonst
     # schließt ein Zurück im Test nur diesen Dialog statt in der Weboberfläche anzukommen
     sh(f'pm grant {PAKET} android.permission.BLUETOOTH_CONNECT')
+    # Android zeigt beim ersten Vollbild einmalig „Viewing full screen … Got it“ – auf echten Geräten längst bestätigt
+    sh('settings put secure immersive_mode_confirmations confirmed')
     aus = link_oeffnen('123456')
     merke('Link öffnet die KinoLel-App (kein Browser)', f'{PAKET}/' in aus,
           ' '.join(z.strip() for z in aus.splitlines() if z.strip().startswith(('Activity', 'Status'))))
@@ -306,6 +308,13 @@ def main():
         cdp.js("location.reload();true")  # frische Seite: YouTube-Skript noch nicht geladen
         time.sleep(3)
         if warten(cdp, "!!document.querySelector('.btnPlayTrailer:not(.hide)')", 60):
+            # wie Lel: von der Startseite zur Detailseite – sonst gäbe es im Verlauf kein Zurück (App würde schließen)
+            cdp.js("Emby.Page.goHome();true")
+            warten(cdp, "/^#\\/home/.test(location.hash)", 30)
+            time.sleep(3)
+            cdp.js(f"Emby.Page.showItem('{film['id']}');true")
+            warten(cdp, f"/^#\\/details\\?id={film['id']}/.test(location.hash) && "
+                        "!!document.querySelector('.btnPlayTrailer:not(.hide)')", 40)
             time.sleep(2)
             cdp.rufe('Fetch.enable', patterns=[{'urlPattern': '*youtube.com/iframe_api*'}])
             cdp.js("document.querySelector('.btnPlayTrailer:not(.hide)').click();true")
@@ -366,6 +375,8 @@ def main():
             z['verlauf'] = cdp.js('history.length')
             sauber = (z.get('hash') or '').startswith('#/details') and film['id'] in (z.get('hash') or '') \
                 and not z.get('ebeneSichtbar') and not z.get('spielt') and not z.get('fehlerDialog')
+            if not sauber:
+                z['fokus'] = [x.strip() for x in sh('dumpsys window').splitlines() if 'mCurrentFocus' in x or 'mFocusedApp' in x][:4]
             merke(f'Trailer nach {warte} s verlassen: Detailseite ohne Überlagerung', sauber, z)
             if not sauber:  # wie Lel: kommt man mit weiterem Zurück noch heraus?
                 for _ in range(2):
