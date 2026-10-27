@@ -7,6 +7,8 @@
 // scheitert, solange YouTube nicht fertig ist (stopVideo fehlt noch) – deshalb kam man nicht mehr heraus.
 // Hier: Zurück (Taste der App, siehe NavigationPlugin.goBack) oder Seitenwechsel während des Ladens bricht den Trailer
 // ab – Modul zurücksetzen, Ebene entfernen, spätere Meldungen von YouTube zu diesem Trailer verwerfen.
+// Außerdem: Player-Seite nur einmal im Verlauf (sonst führte das erste Zurück aus dem laufenden Trailer auf eine leere
+// schwarze Seite) und eine nach dem Player übrig gebliebene YouTube-Ebene wegräumen.
 (function () {
     'use strict';
     if (window.KinoLelTrailer) return;
@@ -17,6 +19,7 @@
     let abgebrochenUm = 0;
     let letzterKlick = 0;
     let wache = null;
+    let nachpruefung = null;        // Prüfung nach dem Verlassen des Players
     const protokoll = []; // für den Test: was ist passiert
     const merken = (text) => { protokoll.push(Math.round(performance.now()) + ' ' + text); if (protokoll.length > 50) protokoll.shift(); };
 
@@ -37,6 +40,7 @@
     function neuerVersuch(grund) {
         versuch++;
         laedt = true;
+        clearTimeout(nachpruefung);
         merken('Trailer gestartet (' + grund + ')');
         if (wache) { clearInterval(wache); wache = null; }
     }
@@ -87,9 +91,9 @@
         try { YT.Player = Ersatz; } catch (e) { /* dann greift nur das Aufräumen */ }
     }
 
-    function aufraeumen() {
+    function aufraeumen(erzwingen) {
         const yt = youtubeModul();
-        if (yt && !yt.started) {
+        if (yt && (!yt.started || erzwingen)) {
             // wie stop() des Moduls, aber ohne YouTube (noch nicht bereit) und ohne „gestoppt“ zu melden
             if (yt.timeUpdateInterval) { clearInterval(yt.timeUpdateInterval); yt.timeUpdateInterval = null; }
             if (yt.resizeListener) {
@@ -144,21 +148,51 @@
     let letzteSeite = location.hash;
     function seiteGewechselt(wie) {
         if (location.hash === letzteSeite) return;
+        const ausPlayer = /^#\/video/.test(letzteSeite);
         letzteSeite = location.hash;
         merken('Seite ' + location.hash.slice(0, 24) + ' (' + wie + ')');
         if (imPlayer()) {
             laedt = false;
             return;
         }
-        if (laedt) abbrechen('Seite verlassen');
+        if (laedt) {
+            abbrechen('Seite verlassen');
+            return;
+        }
+        if (!ausPlayer) return;
+        // Player verlassen: normalerweise räumt die Weboberfläche die YouTube-Ebene selbst weg. Liegt sie danach noch
+        // über der Seite (Stoppen ist gescheitert), hier wegräumen – sonst käme man nur per App-Neustart heraus.
+        clearTimeout(nachpruefung);
+        nachpruefung = setTimeout(() => {
+            if (imPlayer() || laedt || !ebenen().length) return;
+            merken('YouTube-Ebene nach dem Player übrig');
+            const pm = wiedergabe();
+            const player = pm && pm.getCurrentPlayer && pm.getCurrentPlayer();
+            if (player && player.id === 'youtubeplayer') {
+                try { Promise.resolve(pm.stop(player)).catch(() => {}); } catch (e) { /* weiter aufräumen */ }
+            }
+            aufraeumen(true);
+        }, 2500);
     }
     window.addEventListener('popstate', () => seiteGewechselt('Verlauf'));
     window.addEventListener('hashchange', () => seiteGewechselt('Adresse'));
+    const originale = { pushState: history.pushState, replaceState: history.replaceState };
     for (const art of ['pushState', 'replaceState']) {
-        const original = history[art];
+        const original = originale[art];
         if (typeof original !== 'function') continue;
-        history[art] = function () {
-            const ergebnis = original.apply(this, arguments);
+        history[art] = function (zustand, titel, adresse) {
+            // Die Weboberfläche legt beim Öffnen des Players (showVideoOsd) zwei gleiche Einträge #/video an: das erste
+            // Zurück (und das Ende des Trailers) landete dann auf einer leeren schwarzen Player-Seite. Der zweite gleiche
+            // Eintrag ersetzt hier den ersten, statt einen weiteren anzulegen.
+            let ausfuehren = original;
+            try {
+                if (art === 'pushState' && imPlayer() && adresse != null && typeof originale.replaceState === 'function' &&
+                    new URL(String(adresse), location.href).href === location.href) {
+                    ausfuehren = originale.replaceState;
+                    merken('doppelter Verlaufseintrag ' + location.hash.slice(0, 12) + ' ersetzt');
+                }
+            } catch (e) { /* wie angefordert */ }
+            const ergebnis = ausfuehren.apply(this, arguments);
             try { seiteGewechselt(art); } catch (e) { /* egal */ }
             return ergebnis;
         };
