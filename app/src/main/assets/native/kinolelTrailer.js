@@ -13,6 +13,8 @@
     let laedt = false;      // Trailer angetippt, aber noch nicht im Player (#/video)
     let abgebrochen = 0;    // Zeitpunkt des Abbruchs – bis zum nächsten Trailer jede neue YouTube-Ebene schließen
     let wache = null;
+    const protokoll = []; // für den Test: was ist passiert
+    const merken = (text) => { protokoll.push(Math.round(performance.now()) + ' ' + text); if (protokoll.length > 50) protokoll.shift(); };
 
     const imPlayer = () => /^#\/video/.test(location.hash);
     const ebenen = () => Array.from(document.querySelectorAll('.youtubePlayerContainer'));
@@ -41,6 +43,7 @@
         laedt = false;
         abgebrochen = Date.now();
         console.info('KinoLel: ladender Trailer abgebrochen (' + grund + ')');
+        merken('abgebrochen: ' + grund);
         aufraeumen();
         if (wache) clearInterval(wache);
         const bis = Date.now() + 30000;
@@ -55,6 +58,7 @@
         if (e.target && e.target.closest && e.target.closest('.btnPlayTrailer')) {
             laedt = true;
             abgebrochen = 0;
+            merken('Trailer angetippt');
             if (wache) { clearInterval(wache); wache = null; }
             for (const ebene of ebenen()) ebene.style.display = '';
         }
@@ -79,12 +83,13 @@
                 return function () {
                     if (abgebrochen && Date.now() - abgebrochen < 60000) {
                         console.info('KinoLel: YouTube nach Abbruch geladen – Trailer wird nicht mehr gestartet');
+                        merken('YouTube-Skript nach Abbruch: Player nicht angelegt');
                         return undefined;
                     }
                     return bereitRueckruf ? bereitRueckruf.apply(this, arguments) : undefined;
                 };
             },
-            set(fn) { bereitRueckruf = fn; }
+            set(fn) { bereitRueckruf = fn; merken('Modul wartet auf YouTube-Skript'); }
         });
     } catch (e) { /* ältere WebView: dann greift nur das Aufräumen */ }
 
@@ -94,9 +99,11 @@
     }).observe(document.body, { childList: true });
 
     window.KinoLelTrailer = {
+        protokoll,
         /** Zurück-Taste der App: true = nur den ladenden Trailer abgebrochen (auf der Seite bleiben) */
         zurueck() {
             const sichtbar = ebenen().some((e) => e.style.display !== 'none');
+            merken('Zurück (lädt: ' + laedt + ', Ebene sichtbar: ' + sichtbar + ')');
             if (laedt || (sichtbar && !imPlayer())) {
                 abbrechen('Zurück');
                 return true;

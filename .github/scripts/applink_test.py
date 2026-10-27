@@ -11,6 +11,7 @@ geöffnet bekommt sondern … die KinoLel App auf dem Handy“).
  5. abmelden (fail2ban: nur eine Anmeldung je Lauf)
 Aufruf: python3 applink_test.py <ausgabe-ordner>
 """
+import base64
 import json
 import os
 import re
@@ -131,6 +132,26 @@ TRAILER_ZUSTAND = """(function(){
           hideScroll: document.body.classList.contains('hide-scroll'),
           fehlerDialog: Array.from(document.querySelectorAll('.dialogContainer .dialog')).some(sichtbar)};
 })()"""
+
+
+# Ersatz für https://www.youtube.com/iframe_api: YT.Player „lädt“, meldet bereit und spielt dann – wie ein Trailer, den
+# YouTube einbetten lässt (bei Lel). Zeichnet auf, was das YouTube-Modul damit macht.
+YOUTUBE_ATTRAPPE = """
+window.__ytAttrappe = {angelegt: 0, spielt: 0};
+window.YT = {loaded: 1, PlayerState: {ENDED: 0, PLAYING: 1, PAUSED: 2, BUFFERING: 3, CUED: 5},
+  Player: function (id, opt) {
+    var self = this, el = document.getElementById(id);
+    window.__ytAttrappe.angelegt++;
+    if (el) { el.style.background = '#334'; el.textContent = 'YOUTUBE-ATTRAPPE'; }
+    ['stopVideo','pauseVideo','destroy','seekTo','mute','unMute','setVolume','setSize'].forEach(function (n) { self[n] = function () {}; });
+    self.getCurrentTime = function () { return 1; }; self.getDuration = function () { return 102; };
+    self.getVolume = function () { return 100; }; self.isMuted = function () { return false; };
+    self.playVideo = function () { setTimeout(function () { window.__ytAttrappe.spielt++;
+      opt.events && opt.events.onStateChange && opt.events.onStateChange({data: 1, target: self}); }, 500); };
+    setTimeout(function () { opt.events && opt.events.onReady && opt.events.onReady({target: self}); }, 300);
+  }};
+setTimeout(function () { if (typeof window.onYouTubeIframeAPIReady === 'function') window.onYouTubeIframeAPIReady(); }, 0);
+"""
 
 
 def angehalten(cdp, sekunden):
@@ -289,13 +310,17 @@ def main():
             vorher = cdp.js(TRAILER_ZUSTAND) or {}
             sh('input keyevent KEYCODE_BACK')
             gehalten += angehalten(cdp, 5)
-            for rid in gehalten:
-                cdp.rufe('Fetch.continueRequest', requestId=rid)
+            for rid in gehalten:  # statt YouTube: Attrappe, die wie ein abspielbarer Trailer reagiert
+                cdp.rufe('Fetch.fulfillRequest', requestId=rid, responseCode=200,
+                         responseHeaders=[{'name': 'Content-Type', 'value': 'application/javascript'}],
+                         body=base64.b64encode(YOUTUBE_ATTRAPPE.encode()).decode())
             cdp.rufe('Fetch.disable')
             time.sleep(10)
             z = cdp.js(TRAILER_ZUSTAND) or {}
             z['youtube_zurueckgehalten'] = len(gehalten)
             z['vor_zurueck'] = vorher
+            z['protokoll'] = cdp.js("window.KinoLelTrailer ? window.KinoLelTrailer.protokoll : 'ohne KinoLel-Trailer-Skript'")
+            z['attrappe'] = cdp.js("window.__ytAttrappe || null")
             bild('applink-5-trailer-laedt-noch')
             sauber = (z.get('hash') or '').startswith('#/details') and film['id'] in (z.get('hash') or '') \
                 and not z.get('ebeneSichtbar') and not z.get('spielt') and not z.get('fehlerDialog')
