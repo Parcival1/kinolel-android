@@ -23,6 +23,7 @@ import org.jellyfin.sdk.model.api.MediaStream
 import org.jellyfin.sdk.model.api.MediaStreamType
 import timber.log.Timber
 import java.io.IOException
+import java.util.UUID
 
 class DownloadQueue(
     private val context: Context,
@@ -236,7 +237,10 @@ class DownloadQueue(
             put("audioBitRate", qualitaet.audioBitrate)
             put("maxAudioChannels", 2)
             put("deviceId", api.deviceInfo.id)
-            put("playSessionId", "kinolel-download-${download.id}")
+            // Eindeutig je Download: die Nummer allein ist auf jedem Gerät gleich (1, 2, …), und Jellyfin ordnet einer
+            // Wiedergabe-Sitzung ihre Datei zu – mit „kinolel-download-2“ bekam man die Datei eines fremden Downloads
+            // (28.10.2026: DuckTales-Folge -> 2-Stunden-Film)
+            put("playSessionId", "kinolel-download-${download.id}-${UUID.randomUUID().toString().replace("-", "")}")
             quelle?.defaultAudioStreamIndex?.let { put("audioStreamIndex", it) }
         }
         return QueuedFile(
