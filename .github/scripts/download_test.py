@@ -358,9 +358,17 @@ def main():
     if not (a and b):
         return 1
 
+    # Medienquellen wie die App sie bekommt (/Items?ids=…): verkleinert wandelt der Server genau diese Datei um.
+    # Gehört sie nicht zum Testtitel, nicht herunterladen (keine Last auf der NAS) – Fehler melden.
+    quellen = cdp.js("""(async()=>{const a=ApiClient;const r=await a.getJSON(a.getUrl('Items',{ids:%s,fields:'MediaSources,Path'}));
+      return (r.Items||[]).map(i=>({id:i.Id,quellen:(i.MediaSources||[]).map(q=>({id:q.Id,datei:(q.Path||'').split('/').pop().slice(0,70),
+        mb:Math.round((q.Size||0)/1e6),min:Math.round((q.RunTimeTicks||0)/6e8)}))}))})()""" % json.dumps(b['id'])) or []
+    passt = bool(quellen) and all(TITEL_B.split(' - ')[0] in q['datei'] for i in quellen for q in i['quellen'])
+    schritt('Medienquelle von Titel B gehört zum Titel', passt, quellen=quellen)
+
     # 2. Herunterladen
     ok_a = herunterladen(cdp, a, r'^Original', '10-a')
-    ok_b = herunterladen(cdp, b, r'^Klein \(480p\)', '20-b')
+    ok_b = herunterladen(cdp, b, r'^Klein \(480p\)', '20-b') if passt else False
     if ok_a:
         fernsteuerung(cdp, a)
     cdp.js("NativeInterface.openDownloadManager();true")
