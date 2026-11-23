@@ -1,6 +1,18 @@
 {
   "versionen": [
     {
+      "version": "1.3",
+      "de": [
+        "Benachrichtigung, bevor ein Wunsch gelöscht wird."
+      ],
+      "hu": [
+        "Értesítés, mielőtt egy kívánságod törlődik."
+      ],
+      "en": [
+        "Notification before one of your requests is deleted."
+      ]
+    },
+    {
       "version": "1.2",
       "de": [
         "Fehlerbehebungen und Verbesserungen."

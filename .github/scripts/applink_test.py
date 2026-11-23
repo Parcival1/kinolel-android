@@ -8,10 +8,14 @@ geöffnet bekommt sondern … die KinoLel App auf dem Handy“).
  3. mit Hilfskonto anmelden (Passwort nur aus KINOLEL_TEST_PW, nie ausgegeben) -> Quick-Connect-Seite, Code 123456
     eingetragen, nichts abgeschickt
  4. zweiter Link (Code 654321), während die App läuft -> Code 654321 eingetragen
+ 4d. Benachrichtigung vor der Löschung eines Wunsches (Lel 23.11.2026): eigene Testeinträge in den Anzeige-Einstellungen
+    kinolel-bald des Hilfskontos, Erlaubnisfrage, Benachrichtigung, Tippen, Hintergrundprüfung (WorkManager), danach leer
  5. abmelden (fail2ban: nur eine Anmeldung je Lauf)
 Aufruf: python3 applink_test.py <ausgabe-ordner>
 """
 import base64
+import datetime
+import html
 import json
 import os
 import re
@@ -21,6 +25,7 @@ import time
 import urllib.request
 
 import websocket
+from zoneinfo import ZoneInfo
 
 AUS = sys.argv[1] if len(sys.argv) > 1 else 'applink'
 PAKET = os.environ.get('PAKET', 'de.kinolel.app')
@@ -199,6 +204,230 @@ def anmeldefelder_leeren(cdp):
             pass
 
 
+# --- 4d. Benachrichtigung vor der Löschung eines Wunsches ---
+LH_KANAL = 'kinolel_bald_geloescht'
+LH_LOG = 'KinoLel-Löschhinweis:'
+LH = {'geschrieben': False}
+MONATE_HU = ['január', 'február', 'március', 'április', 'május', 'június', 'július', 'augusztus', 'szeptember',
+             'október', 'november', 'december']
+
+# Testeinträge mit dem Zugang des angemeldeten Hilfskontos (eigene Anzeige-Einstellungen, kein Admin-Schlüssel)
+LH_SCHREIBEN = """(async function(liste){
+  var u = ApiClient.getCurrentUserId();
+  var url = ApiClient.getUrl('DisplayPreferences/kinolel-bald', {userId: u, client: 'kinolel'});
+  var h = {'Authorization': 'MediaBrowser Token="' + ApiClient.accessToken() + '"', 'Content-Type': 'application/json'};
+  var p = await (await fetch(url, {headers: h})).json();
+  p.Id = 'kinolel-bald'; p.Client = 'kinolel';
+  p.CustomPrefs = Object.assign({}, p.CustomPrefs || {}, {titel: JSON.stringify(liste)});
+  var r = await fetch(url, {method: 'POST', headers: h, body: JSON.stringify(p)});
+  var q = await (await fetch(url, {headers: h})).json();
+  return {status: r.status, titel: (q.CustomPrefs || {}).titel || null};
+})(%s)"""
+
+
+def lh_schreiben(cdp, liste):
+    try:
+        r = cdp.js(LH_SCHREIBEN % json.dumps(liste, ensure_ascii=False)) or {}
+    except Exception as e:  # noqa: BLE001
+        return False, f'{type(e).__name__}: {e}'
+    ok = r.get('status') in (200, 204) and json.loads(r.get('titel') or 'null') == liste
+    LH['geschrieben'] = bool(liste) or (LH['geschrieben'] and not ok)
+    return ok, r
+
+
+def benachrichtigungen():
+    """aktive Benachrichtigungen der App im Kanal „Bald gelöscht“: [{'titel', 'text'}]"""
+    teil = sh('dumpsys notification --noredact').split('Notification List:', 1)[-1]
+    for ende in ('\n  Snoozed', 'mArchive', '\n  Archive'):
+        teil = teil.split(ende, 1)[0]
+    liste = []
+    for block in teil.split('NotificationRecord(')[1:]:
+        if f'pkg={PAKET} ' not in block or f'channel={LH_KANAL}' not in block:
+            continue
+
+        def feld(name, b=block):
+            m = re.search(r'\b' + re.escape(name) + r'=String \((.*)\)\s*$', b, re.M)
+            return m.group(1) if m else None
+        liste.append({'titel': feld('android.title'), 'text': feld('android.bigText') or feld('android.text')})
+    return liste
+
+
+def warte_auf_benachrichtigungen(bedingung, frist):
+    ende = time.time() + frist
+    liste = benachrichtigungen()
+    while not bedingung(liste) and time.time() < ende:
+        time.sleep(2)
+        liste = benachrichtigungen()
+    return liste
+
+
+def oberflaeche():
+    for _ in range(3):
+        sh('rm -f /sdcard/kl-ui.xml')
+        sh('uiautomator dump /sdcard/kl-ui.xml')
+        xml = sh('cat /sdcard/kl-ui.xml')
+        if '<hierarchy' in xml:
+            return xml
+        time.sleep(2)
+    return ''
+
+
+def knoten_mitte(xml, muster):
+    """Mitte des ersten Knotens, dessen Text oder resource-id zum Muster passt"""
+    for m in re.finditer(r'<node [^>]*>', xml):
+        n = m.group(0)
+        werte = [html.unescape(w.group(1)) for w in re.finditer(r' (?:text|resource-id)="([^"]*)"', n)]
+        b = re.search(r'bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"', n)
+        if b and any(re.search(muster, w) for w in werte):
+            x1, y1, x2, y2 = map(int, b.groups())
+            return (x1 + x2) // 2, (y1 + y2) // 2
+    return None
+
+
+def log_zeilen():
+    return [z[z.index(LH_LOG):] for z in adb('logcat', '-d').splitlines() if LH_LOG in z]
+
+
+def geraetezeit():
+    try:
+        return int(sh('date +%s').strip())
+    except ValueError:
+        return 0
+
+
+def uhr_stellen(sekunden):
+    sh('settings put global auto_time 0')
+    sh(f'cmd alarm set-time {sekunden * 1000}')
+    if abs(geraetezeit() - sekunden) > 60:
+        sh(f'su 0 date @{sekunden}')
+    return abs(geraetezeit() - sekunden) <= 60
+
+
+def workmanager_auftraege():
+    roh = sh('dumpsys jobscheduler')
+    return sorted(set(re.findall(r'JOB #u\d+a\d+/(\d+):[^\n]*?' + re.escape(PAKET) + r'/androidx\.work', roh)), key=int)
+
+
+def hintergrund_lauf(stunden):
+    """Geräteuhr vorstellen (WorkManager führt die 6-Std.-Prüfung sonst nicht vorzeitig aus) und die WorkManager-Aufträge
+    der App über JobScheduler sofort starten – wie Android im Hintergrund"""
+    uhr = uhr_stellen(geraetezeit() + stunden * 3600)
+    auftraege = workmanager_auftraege()
+    for j in auftraege:
+        sh(f'cmd jobscheduler run -f {PAKET} {j}')
+    return uhr, auftraege
+
+
+def loeschhinweis_test(cdp):
+    """4d. Lel 23.11.2026: „… zu der Erinnerung für auslaufende Titel auch eine KinoLel App Benachrichtigung“.
+    Ohne Einträge nicht nach der Erlaubnis fragen; App-Start mit Eintrag fragt, dann Benachrichtigung (deutsch, ein Titel),
+    Tippen öffnet die Detailseite; Hintergrundprüfung bei beendeter App: zwei deutsche Titel in einer Benachrichtigung,
+    ungarischer Titel auf Ungarisch, gemeldeter Titel nicht noch einmal; zweiter Lauf meldet nichts erneut."""
+    filme = cdp.js("ApiClient.getItems(ApiClient.getCurrentUserId(),{IncludeItemTypes:'Movie',Recursive:true,Limit:4,"
+                   "SortBy:'SortName'}).then(function(r){return (r.Items||[]).map(function(i){return {id:i.Id,name:i.Name}})},"
+                   "function(){return []})") or []
+    if not merke('Löschhinweis: vier Filme für Testeinträge', len(filme) == 4, [f['name'] for f in filme]):
+        return cdp
+    t1, t2, t3, t4 = filme
+    tag = datetime.datetime.now(ZoneInfo('Europe/Berlin')).date() + datetime.timedelta(days=4)
+    hu_datum = f'{tag.year}. {MONATE_HU[tag.month - 1]} {tag.day}.'
+
+    def eintrag(f, hu):
+        return {'id': f['id'], 'titel': f['name'], 'tag': tag.isoformat(), 'hu': hu, 'tage': 14 if hu else 35}
+
+    # a) bisher keine Frage: Konto ohne Einträge, App mehrfach gestartet und angemeldet
+    e = re.search(r'android\.permission\.POST_NOTIFICATIONS: granted=(\w+)(?:, flags=\[([^\]]*)\])?',
+                  sh(f'dumpsys package {PAKET}'))
+    merke('Löschhinweis: ohne Einträge nicht nach der Erlaubnis gefragt',
+          bool(e) and e.group(1) == 'false' and 'USER_SET' not in (e.group(2) or ''), e.group(0) if e else 'nicht gefunden')
+
+    # b) Eintrag (deutsche Bibliothek) -> App-Start fragt nach der Erlaubnis -> erlauben -> Benachrichtigung
+    ok, info = lh_schreiben(cdp, [eintrag(t1, False)])
+    if not merke('Löschhinweis: Testeintrag geschrieben (ein Titel)', ok, info):
+        return cdp
+    sh(f'am force-stop {PAKET}')
+    time.sleep(1)
+    adb('shell', 'am', 'start', '-W', '-n', f'{PAKET}/org.jellyfin.mobile.MainActivity')
+    knopf, ende = None, time.time() + 60
+    while not knopf and time.time() < ende:
+        knopf = knoten_mitte(oberflaeche(), r'permission_allow_button$')
+        if not knopf:
+            time.sleep(2)
+    bild('loeschhinweis-1-erlaubnis')
+    if merke('Löschhinweis: App-Start mit Eintrag fragt nach der Erlaubnis', knopf):
+        sh(f'input tap {knopf[0]} {knopf[1]}')
+    cdp = cdp_verbinden()
+    einzeln = {'titel': f'„{t1["name"]}“ wird bald gelöscht',
+               'text': f'Wird am {tag:%d.%m.%Y} gelöscht. Sobald jemand ihn anschaut, beginnt die Frist von 5 Wochen neu.'}
+    liste = warte_auf_benachrichtigungen(lambda l: einzeln in l, 45)
+    merke('Löschhinweis: Benachrichtigung nach dem Erlauben (deutsch, ein Titel)', einzeln in liste, liste)
+
+    # c) Tippen -> Detailseite des Titels
+    sh('cmd statusbar expand-notifications')
+    time.sleep(2)
+    stelle = knoten_mitte(oberflaeche(), re.escape(einzeln['titel']))
+    bild('loeschhinweis-2-benachrichtigung')
+    if stelle:
+        sh(f'input tap {stelle[0]} {stelle[1]}')
+    else:
+        sh('cmd statusbar collapse')
+    da = bool(stelle) and bool(cdp) and warten(cdp, f"/^#\\/details\\?id={t1['id']}/.test(location.hash)", 30)
+    time.sleep(2)
+    bild('loeschhinweis-3-detailseite')
+    merke('Löschhinweis: Tippen öffnet die Detailseite', da, (cdp.js('location.hash') if cdp else '')[:80])
+
+    # d) Hintergrund: weitere Titel, App beendet, WorkManager-Prüfung
+    ok, info = lh_schreiben(cdp, [eintrag(t1, False), eintrag(t2, False), eintrag(t3, False), eintrag(t4, True)])
+    if not merke('Löschhinweis: Testeinträge geschrieben (vier Titel, einer ungarisch)', ok, info):
+        return cdp
+    sh('input keyevent KEYCODE_HOME')
+    time.sleep(2)
+    sh(f'am kill {PAKET}')
+    time.sleep(2)
+    app_beendet = not sh(f'pidof {PAKET}').strip()
+    mehrere = {'titel': '2 deiner Wünsche werden bald gelöscht', 'text': f"{t2['name']}, {t3['name']} – tippe für Details."}
+    ungarisch = {'titel': f'Hamarosan törlődik: „{t4["name"]}”',
+                 'text': f'Törlés: {hu_datum}. Amint valaki elkezdi nézni, a 2 hetes határidő újraindul.'}
+    try:
+        uhr, auftraege = hintergrund_lauf(7)
+        liste = warte_auf_benachrichtigungen(lambda l: mehrere in l and ungarisch in l, 45)
+        if not (mehrere in liste and ungarisch in liste):  # einmal nachfassen (Auftragsnummern können wechseln)
+            uhr, auftraege = hintergrund_lauf(1)
+            liste = warte_auf_benachrichtigungen(lambda l: mehrere in l and ungarisch in l, 45)
+        bild('loeschhinweis-4-hintergrund')
+        merke('Löschhinweis: Hintergrundprüfung – zwei deutsche Titel zusammen, ungarischer Titel auf Ungarisch',
+              mehrere in liste and ungarisch in liste,
+              {'liste': liste, 'uhr_gestellt': uhr, 'auftraege': auftraege, 'app_vorher_beendet': app_beendet,
+               'log': log_zeilen()[-3:]})
+        merke('Löschhinweis: schon gemeldeter Titel nicht noch einmal',
+              not any(t1['name'] in (b['titel'] or '') for b in liste), liste)
+
+        # e) zweiter Hintergrundlauf: nichts Neues
+        vorher = len(log_zeilen())
+        hintergrund_lauf(7)
+        ende = time.time() + 30
+        while len(log_zeilen()) <= vorher and time.time() < ende:
+            time.sleep(2)
+        neu = log_zeilen()[vorher:]
+        danach = benachrichtigungen()
+        merke('Löschhinweis: zweiter Hintergrundlauf meldet nichts erneut',
+              bool(neu) and all(' 0 neu gemeldet' in z for z in neu) and len(danach) == len(liste), {'log': neu, 'anzahl': len(danach)})
+    finally:
+        uhr_stellen(int(time.time()))
+        sh('settings put global auto_time 1')
+        with open(os.path.join(AUS, 'loeschhinweis-log.txt'), 'w', encoding='utf-8') as f:
+            f.write('\n'.join(log_zeilen()) + '\n')
+
+    # f) aufräumen: App wieder öffnen, Testeinträge leeren
+    adb('shell', 'am', 'start', '-W', '-n', f'{PAKET}/org.jellyfin.mobile.MainActivity')
+    cdp = cdp_verbinden()
+    if cdp:
+        warten(cdp, "!!window.ApiClient && !!ApiClient.accessToken()", 60)
+        ok, info = lh_schreiben(cdp, [])
+        merke('Löschhinweis: Testeinträge wieder leer', ok, info)
+    return cdp
+
+
 ZUSTAND = ("(function(){var f=document.querySelector('#txtQuickConnectCode');var a=document.activeElement;"
            "return {hash:location.hash, wert:f?f.value:null, fokus:a?String(a.className||a.tagName):'',"
            "fehler:(document.querySelector('.quickConnectError')||{}).textContent||''}})()")
@@ -295,6 +524,11 @@ def main():
             bild('applink-4-titel-' + ('kalt' if art.startswith('Kaltstart') else 'laufend'))
             merke(f'Wünsche-Link öffnet die Detailseite ({art})', da, (cdp.js('location.hash') if cdp else '')[:80])
 
+        # 4d. Benachrichtigung vor der Löschung eines Wunsches (eigene Testeinträge, danach wieder leer)
+        cdp = loeschhinweis_test(cdp) or cdp_verbinden()
+        if not cdp:
+            return
+
         # 4c. Trailer verlassen, während er noch lädt (Lel 27.10.: „… Interfaces sich überlagern, da ein Trailer noch am
         #     Laden ist. Kein Ausweg außer App-Neustart.“) – YouTube-Trailer, Zurück nach 0,5 / 1,5 / 3 s:
         #     danach Detailseite, keine sichtbare YouTube-Ebene, nichts läuft
@@ -390,6 +624,12 @@ def main():
                 cdp.js("(function(){var pm=window.ExoPlayer&&window.ExoPlayer.playbackManager;try{pm&&pm.stop()}catch(e){};"
                        "document.querySelectorAll('.youtubePlayerContainer').forEach(function(e){e.remove()});return true})()")
     finally:
+        if LH['geschrieben']:  # Testeinträge nie stehen lassen
+            try:
+                cdp = cdp_verbinden() if not cdp else cdp
+                print('Löschhinweis-Testeinträge leeren:', lh_schreiben(cdp, []))
+            except Exception as e:  # noqa: BLE001
+                print('Löschhinweis-Testeinträge NICHT geleert:', type(e).__name__)
         # 5. abmelden (Zugang nie ausgeben)
         print('Abmelden:', cdp.js("(function(){try{var c=JSON.parse(localStorage.getItem('jellyfin_credentials'));var s=c.Servers[0];"
                                   "if(!s.AccessToken)return 'keine Sitzung';return fetch('https://kinolel.de/Sessions/Logout',{method:'POST',"

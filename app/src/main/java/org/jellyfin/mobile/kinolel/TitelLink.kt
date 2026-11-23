@@ -16,6 +16,7 @@ import timber.log.Timber
  * bestätigt, ein Filter für /web würde sonst jeden kinolel.de-Link auf dem Gerät hierher ziehen) – mit der Adresse aus
  * der Wunschseite, z. B. `https://kinolel.de/web/#/details?id=…&serverId=…` (auch `#!/details`, `/web/index.html`).
  * Angenommen werden nur Detailseiten mit 32-stelliger Kennung; die Weboberfläche springt dann dorthin.
+ * Auch das Tippen auf die Benachrichtigung „… wird bald gelöscht“ ([LoeschHinweis]) kommt hier an.
  */
 object TitelLink {
     private val host = Uri.parse(BuildConfig.SERVER_URL).host
@@ -35,7 +36,7 @@ object TitelLink {
         val werte = Uri.parse("kinolel://titel" + fragment.removePrefix("/details"))
         val id = werte.getQueryParameter("id")?.takeIf(kennung::matches) ?: return
         val server = werte.getQueryParameter("serverId")?.takeIf(kennung::matches)
-        Timber.i("KinoLel: Titel aus KinoLel Wünsche öffnen")
+        Timber.i("KinoLel: Detailseite aus Link öffnen")
         _ziel.value = "#/details?id=$id" + (server?.let { "&serverId=$it" } ?: "")
     }
 

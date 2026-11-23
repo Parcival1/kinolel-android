@@ -42,4 +42,9 @@
     <string name="kinolel_update_aktuell">%1$s is up to date (version %2$s).</string>
     <string name="kinolel_update_keine_verbindung">Can\'t check for updates right now – no connection.</string>
     <string name="kinolel_update_suchen_info">Version %1$s – tap to check for updates</string>
+    <string name="kinolel_bald_kanal">Deleted soon</string>
+    <string name="kinolel_bald_ein_titel">“%1$s” will be deleted soon</string>
+    <string name="kinolel_bald_ein_text">Will be deleted on %1$s. As soon as someone watches it, the %2$s period starts over.</string>
+    <string name="kinolel_bald_mehrere_titel">%1$d of your requests will be deleted soon</string>
+    <string name="kinolel_bald_mehrere_text">%1$s – tap for details.</string>
 </resources>

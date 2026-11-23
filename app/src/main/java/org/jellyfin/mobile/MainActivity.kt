@@ -27,6 +27,7 @@ import org.jellyfin.mobile.events.ActivityEvent
 import org.jellyfin.mobile.events.ActivityEventHandler
 import org.jellyfin.mobile.kinolel.Aktualisierung
 import org.jellyfin.mobile.kinolel.FernseherLink
+import org.jellyfin.mobile.kinolel.LoeschHinweis
 import org.jellyfin.mobile.kinolel.TitelLink
 import org.jellyfin.mobile.kinolel.Neuigkeiten
 import org.jellyfin.mobile.player.cast.Chromecast
@@ -165,6 +166,14 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        // KinoLel (Lel 23.11.2026): Benachrichtigung, bevor ein Wunsch auf Jellyfin2 gelöscht wird – bei jedem Start
+        // prüfen (und nach der Anmeldung), im Hintergrund etwa alle 6 Std. (kinolel/LoeschHinweis.kt)
+        lifecycleScope.launch {
+            mainViewModel.userState.collectLatest { state ->
+                if (state is UserState.Available) LoeschHinweis.beimStart(this@MainActivity)
+            }
+        }
+
         // Handle back presses
         onBackPressedDispatcher.addCallback(this, onBackPressed = onBackPressedCallback)
 
@@ -189,6 +198,8 @@ class MainActivity : AppCompatActivity() {
         Aktualisierung.fortsetzen(this)
         // KinoLel (Lel 22.10.2026): bei jedem Öffnen/Zurückkehren nach Updates suchen
         Aktualisierung.pruefen(this)
+        // KinoLel: Hintergrundprüfung fand Titel, durfte aber nichts anzeigen -> jetzt nach der Erlaubnis fragen
+        LoeschHinweis.fragenFallsNoetig(this)
     }
 
     override fun onStart() {
