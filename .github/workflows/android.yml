@@ -84,7 +84,8 @@ jobs:
   rauchtest:
     name: Rauchtest im Emulator
     needs: build
-    runs-on: ubuntu-26.04
+    # Emulator-Jobs auf 24.04: auf ubuntu-26.04 (Abbild 20261116) verschwand der Emulator am 23.11. mehrfach ohne Meldung
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -116,12 +117,18 @@ jobs:
           arch: x86_64
           target: google_apis
           profile: pixel_7
-          # Emulator 37.2.12.0 fest (lief bis v1.2 stabil); „latest“ 37.3.10.0 stürzte am 23.11. in 4 von 11 Läufen ab
+          # Emulator 37.2.12.0 fest (lief bis v1.2 stabil)
           emulator-build: 16428233
           disable-animations: true
           script: |
             bash .github/scripts/rauchtest.sh
             python3 .github/scripts/applink_test.py rauchtest/applink
+
+      - name: Runner-Diagnose bei Fehler (Speicher, OOM, KVM)
+        if: failure()
+        run: |
+          free -m || true
+          sudo dmesg 2>/dev/null | grep -iE 'out of memory|oom|killed process|kvm' | tail -20 || true
 
       - name: Bildschirmfotos hochladen
         if: always()
@@ -144,7 +151,8 @@ jobs:
     name: Download-Test im Emulator (offline)
     needs: build
     if: startsWith(github.ref, 'refs/tags/v') || contains(github.event.head_commit.message, '[download-test]')
-    runs-on: ubuntu-26.04
+    # Emulator-Jobs auf 24.04: auf ubuntu-26.04 (Abbild 20261116) verschwand der Emulator am 23.11. mehrfach ohne Meldung
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -173,12 +181,18 @@ jobs:
           arch: x86_64
           target: google_apis
           profile: pixel_7
-          # Emulator 37.2.12.0 fest (lief bis v1.2 stabil); „latest“ 37.3.10.0 stürzte am 23.11. in 4 von 11 Läufen ab
+          # Emulator 37.2.12.0 fest (lief bis v1.2 stabil)
           emulator-build: 16428233
           disable-animations: true
           script: |
             adb install -r apk/*.apk
             python3 .github/scripts/download_test.py downloadtest
+
+      - name: Runner-Diagnose bei Fehler (Speicher, OOM, KVM)
+        if: failure()
+        run: |
+          free -m || true
+          sudo dmesg 2>/dev/null | grep -iE 'out of memory|oom|killed process|kvm' | tail -20 || true
 
       - name: Ergebnis hochladen
         if: always()
