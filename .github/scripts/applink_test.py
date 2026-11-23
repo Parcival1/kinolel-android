@@ -349,11 +349,13 @@ def uhr_stellen(sekunden):
 
 
 def workmanager_auftraege():
-    muster = r'JOB #u\d+a\d+/(\d+):[^\n]*?' + re.escape(PAKET) + r'/androidx\.work'
+    """[(Namensraum, Nummer)] – WorkManager 2.11 plant im JobScheduler-Namensraum „androidx.work.systemjobscheduler“:
+    „JOB androidx.work.systemjobscheduler:u0a192/5: … de.kinolel.app/androidx.work…“ (ältere: „JOB #u0a192/5: …“)"""
+    muster = r'JOB #?(?:([\w.]+):)?u\d+a\d+/(\d+):[^\n]*?' + re.escape(PAKET) + r'/androidx\.work'
     roh = sh(f'dumpsys jobscheduler {PAKET}')
     ids = re.findall(muster, roh) or re.findall(muster, roh := sh('dumpsys jobscheduler'))
     LH['jobs'] = [z.strip()[:200] for z in roh.splitlines() if PAKET in z][:8]  # Diagnose
-    return sorted(set(ids), key=int)
+    return sorted(set(ids), key=lambda x: int(x[1]))
 
 
 def hintergrund_lauf(stunden):
@@ -361,8 +363,8 @@ def hintergrund_lauf(stunden):
     der App über JobScheduler sofort starten – wie Android im Hintergrund"""
     uhr = uhr_stellen(geraetezeit() + stunden * 3600)
     auftraege = workmanager_auftraege()
-    for j in auftraege or [str(i) for i in range(40)]:  # nicht gefunden: WorkManager vergibt die Nummern ab 0
-        sh(f'cmd jobscheduler run -f {PAKET} {j}')
+    for ns, j in auftraege:
+        sh(f'cmd jobscheduler run -f ' + (f'-n {ns} ' if ns else '') + f'{PAKET} {j}')
     return uhr, auftraege
 
 
