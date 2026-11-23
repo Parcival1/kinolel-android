@@ -608,105 +608,104 @@ def main():
             bild('applink-4-titel-' + ('kalt' if art.startswith('Kaltstart') else 'laufend'))
             merke(f'Wünsche-Link öffnet die Detailseite ({art})', da, (cdp.js('location.hash') if cdp else '')[:80])
 
-        # 4d. Benachrichtigung vor der Löschung eines Wunsches (eigene Testeinträge, danach wieder leer)
-        cdp = loeschhinweis_test(cdp) or cdp_verbinden()
-        if not cdp:
-            return
-
         # 4c. Trailer verlassen, während er noch lädt (Lel 27.10.: „… Interfaces sich überlagern, da ein Trailer noch am
         #     Laden ist. Kein Ausweg außer App-Neustart.“) – YouTube-Trailer, Zurück nach 0,5 / 1,5 / 3 s:
         #     danach Detailseite, keine sichtbare YouTube-Ebene, nichts läuft
         film = cdp.js(FILM_MIT_TRAILER)
-        if not merke('Film mit YouTube-Trailer gefunden', bool(film), film):
-            return
-        # a) Lels Fall gezielt: das YouTube-Skript (iframe_api) hält DevTools zurück -> der Trailer „lädt noch“, als
-        #    Zurück kommt; danach lädt es fertig (im Emulator lässt YouTube diesen Trailer sonst gar nicht erst laden)
-        cdp.js(f"location.hash='#/details?id={film['id']}';true")
-        warten(cdp, "!!document.querySelector('.btnPlayTrailer:not(.hide)')", 40)
-        cdp.js("location.reload();true")  # frische Seite: YouTube-Skript noch nicht geladen
-        time.sleep(3)
-        if warten(cdp, "!!document.querySelector('.btnPlayTrailer:not(.hide)')", 60):
-            # wie Lel: von der Startseite zur Detailseite – sonst gäbe es im Verlauf kein Zurück (App würde schließen)
-            cdp.js("Emby.Page.goHome();true")
-            warten(cdp, "/^#\\/home/.test(location.hash)", 30)
-            time.sleep(3)
-            cdp.js(f"Emby.Page.showItem('{film['id']}');true")
-            warten(cdp, f"/^#\\/details\\?id={film['id']}/.test(location.hash) && "
-                        "!!document.querySelector('.btnPlayTrailer:not(.hide)')", 40)
-            time.sleep(2)
-            cdp.rufe('Fetch.enable', patterns=[{'urlPattern': '*youtube.com/iframe_api*'}])
-            cdp.js("document.querySelector('.btnPlayTrailer:not(.hide)').click();true")
-            gehalten = angehalten(cdp, 2)
-            vorher = cdp.js(TRAILER_ZUSTAND) or {}
-            vorher['navigationHelper'] = cdp.js(
-                "(function(){var n=window.NavigationHelper;window.__zurueck=[];if(n&&!n.__gezaehlt){var o=n.goBack;"
-                "n.goBack=function(){window.__zurueck.push(location.hash);return o.apply(n,arguments)};n.__gezaehlt=1}"
-                "return n?'da':'fehlt'})()")
-            vorher['fenster'] = re.findall(r'mCurrentFocus=\S+ \S+ (\S+)\}', sh('dumpsys window'))[:1]
-            bild('applink-5-trailer-vor-zurueck')
-            sh('logcat -c')
-            sh('input keyevent KEYCODE_BACK')
-            gehalten += angehalten(cdp, 5)
-            for rid in gehalten:  # statt YouTube: Attrappe, die wie ein abspielbarer Trailer reagiert
-                cdp.rufe('Fetch.fulfillRequest', requestId=rid, responseCode=200,
-                         responseHeaders=[{'name': 'Content-Type', 'value': 'application/javascript'}],
-                         body=base64.b64encode(YOUTUBE_ATTRAPPE.encode()).decode())
-            cdp.rufe('Fetch.disable')
-            time.sleep(10)
-            z = cdp.js(TRAILER_ZUSTAND) or {}
-            z['youtube_zurueckgehalten'] = len(gehalten)
-            z['vor_zurueck'] = vorher
-            z['protokoll'] = cdp.js("window.KinoLelTrailer ? window.KinoLelTrailer.protokoll : 'ohne KinoLel-Trailer-Skript'")
-            z['attrappe'] = cdp.js("window.__ytAttrappe || null")
-            z['goBack_aufrufe'] = cdp.js("window.__zurueck || null")
-            with open(os.path.join(AUS, 'logcat-trailer.txt'), 'w', encoding='utf-8') as f:
-                f.write('\n'.join(z_ for z_ in adb('logcat', '-d').splitlines()
-                                   if 'WebView' in z_ or 'KinoLel' in z_ or 'Back' in z_ or 'jellyfin' in z_.lower())[-400:])
-            bild('applink-5-trailer-laedt-noch')
-            sauber = (z.get('hash') or '').startswith('#/details') and film['id'] in (z.get('hash') or '') \
-                and not z.get('ebeneSichtbar') and not z.get('spielt') and not z.get('fehlerDialog')
-            merke('Trailer verlassen, während YouTube noch lädt: Detailseite ohne Überlagerung', sauber, z)
-            if not sauber:
-                for _ in range(2):
-                    sh('input keyevent KEYCODE_BACK')
-                    time.sleep(4)
-                print('Nach zwei weiteren Zurück:', cdp.js(TRAILER_ZUSTAND))
-                bild('applink-5-trailer-laedt-noch-danach')
-                cdp.js("(function(){var pm=window.ExoPlayer&&window.ExoPlayer.playbackManager;try{pm&&pm.stop()}catch(e){};"
-                       "document.querySelectorAll('.youtubePlayerContainer').forEach(function(e){e.remove()});return true})()")
-        else:
-            merke('Trailer-Knopf nach Neuladen da', False, cdp.js('location.hash'))
-        # b) ohne Eingriff (YouTube-Attrappe aus a ist noch geladen): Zurück nach 0,5 s (lädt noch) und 3 s (spielt)
-        for warte in (0.5, 3.0):
+        if merke('Film mit YouTube-Trailer gefunden', bool(film), film):
+            # a) Lels Fall gezielt: das YouTube-Skript (iframe_api) hält DevTools zurück -> der Trailer „lädt noch“, als
+            #    Zurück kommt; danach lädt es fertig (im Emulator lässt YouTube diesen Trailer sonst gar nicht erst laden)
             cdp.js(f"location.hash='#/details?id={film['id']}';true")
-            if not warten(cdp, "!!document.querySelector('.btnPlayTrailer:not(.hide)')", 40):
-                merke(f'Trailer-Knopf da ({warte} s)', False, cdp.js('location.hash'))
-                continue
-            time.sleep(2)
-            cdp.js("document.querySelector('.btnPlayTrailer:not(.hide)').click();true")
-            time.sleep(warte)
-            sh('input keyevent KEYCODE_BACK')
-            time.sleep(10)  # ein noch ladender Trailer hätte jetzt seine Ebene über die Seite gelegt
-            z = cdp.js(TRAILER_ZUSTAND) or {}
-            bild(f'applink-5-trailer-{warte}s')
-            z['protokoll'] = cdp.js("window.KinoLelTrailer ? window.KinoLelTrailer.protokoll.slice(-10) : null")
-            z['verlauf'] = cdp.js('history.length')
-            sauber = (z.get('hash') or '').startswith('#/details') and film['id'] in (z.get('hash') or '') \
-                and not z.get('ebeneSichtbar') and not z.get('spielt') and not z.get('fehlerDialog')
-            if not sauber:
-                z['fokus'] = [x.strip() for x in sh('dumpsys window').splitlines() if 'mCurrentFocus' in x or 'mFocusedApp' in x][:4]
-            merke(f'Trailer nach {warte} s verlassen: Detailseite ohne Überlagerung', sauber, z)
-            if not sauber:  # wie Lel: kommt man mit weiterem Zurück noch heraus?
-                for _ in range(2):
-                    sh('input keyevent KEYCODE_BACK')
-                    time.sleep(4)
-                danach = cdp.js(TRAILER_ZUSTAND) or {}
-                danach['protokoll'] = cdp.js("window.KinoLelTrailer ? window.KinoLelTrailer.protokoll.slice(-6) : null")
-                print('Nach zwei weiteren Zurück:', danach)
-                merke(f'Trailer nach {warte} s: Zustand nach zwei weiteren Zurück (nur Info)', True, danach)
-                bild(f'applink-5-trailer-{warte}s-danach')
-                cdp.js("(function(){var pm=window.ExoPlayer&&window.ExoPlayer.playbackManager;try{pm&&pm.stop()}catch(e){};"
-                       "document.querySelectorAll('.youtubePlayerContainer').forEach(function(e){e.remove()});return true})()")
+            warten(cdp, "!!document.querySelector('.btnPlayTrailer:not(.hide)')", 40)
+            cdp.js("location.reload();true")  # frische Seite: YouTube-Skript noch nicht geladen
+            time.sleep(3)
+            if warten(cdp, "!!document.querySelector('.btnPlayTrailer:not(.hide)')", 60):
+                # wie Lel: von der Startseite zur Detailseite – sonst gäbe es im Verlauf kein Zurück (App würde schließen)
+                cdp.js("Emby.Page.goHome();true")
+                warten(cdp, "/^#\\/home/.test(location.hash)", 30)
+                time.sleep(3)
+                cdp.js(f"Emby.Page.showItem('{film['id']}');true")
+                warten(cdp, f"/^#\\/details\\?id={film['id']}/.test(location.hash) && "
+                            "!!document.querySelector('.btnPlayTrailer:not(.hide)')", 40)
+                time.sleep(2)
+                cdp.rufe('Fetch.enable', patterns=[{'urlPattern': '*youtube.com/iframe_api*'}])
+                cdp.js("document.querySelector('.btnPlayTrailer:not(.hide)').click();true")
+                gehalten = angehalten(cdp, 2)
+                vorher = cdp.js(TRAILER_ZUSTAND) or {}
+                vorher['navigationHelper'] = cdp.js(
+                    "(function(){var n=window.NavigationHelper;window.__zurueck=[];if(n&&!n.__gezaehlt){var o=n.goBack;"
+                    "n.goBack=function(){window.__zurueck.push(location.hash);return o.apply(n,arguments)};n.__gezaehlt=1}"
+                    "return n?'da':'fehlt'})()")
+                vorher['fenster'] = re.findall(r'mCurrentFocus=\S+ \S+ (\S+)\}', sh('dumpsys window'))[:1]
+                bild('applink-5-trailer-vor-zurueck')
+                sh('logcat -c')
+                sh('input keyevent KEYCODE_BACK')
+                gehalten += angehalten(cdp, 5)
+                for rid in gehalten:  # statt YouTube: Attrappe, die wie ein abspielbarer Trailer reagiert
+                    cdp.rufe('Fetch.fulfillRequest', requestId=rid, responseCode=200,
+                             responseHeaders=[{'name': 'Content-Type', 'value': 'application/javascript'}],
+                             body=base64.b64encode(YOUTUBE_ATTRAPPE.encode()).decode())
+                cdp.rufe('Fetch.disable')
+                time.sleep(10)
+                z = cdp.js(TRAILER_ZUSTAND) or {}
+                z['youtube_zurueckgehalten'] = len(gehalten)
+                z['vor_zurueck'] = vorher
+                z['protokoll'] = cdp.js("window.KinoLelTrailer ? window.KinoLelTrailer.protokoll : 'ohne KinoLel-Trailer-Skript'")
+                z['attrappe'] = cdp.js("window.__ytAttrappe || null")
+                z['goBack_aufrufe'] = cdp.js("window.__zurueck || null")
+                with open(os.path.join(AUS, 'logcat-trailer.txt'), 'w', encoding='utf-8') as f:
+                    f.write('\n'.join(z_ for z_ in adb('logcat', '-d').splitlines()
+                                       if 'WebView' in z_ or 'KinoLel' in z_ or 'Back' in z_ or 'jellyfin' in z_.lower())[-400:])
+                bild('applink-5-trailer-laedt-noch')
+                sauber = (z.get('hash') or '').startswith('#/details') and film['id'] in (z.get('hash') or '') \
+                    and not z.get('ebeneSichtbar') and not z.get('spielt') and not z.get('fehlerDialog')
+                merke('Trailer verlassen, während YouTube noch lädt: Detailseite ohne Überlagerung', sauber, z)
+                if not sauber:
+                    for _ in range(2):
+                        sh('input keyevent KEYCODE_BACK')
+                        time.sleep(4)
+                    print('Nach zwei weiteren Zurück:', cdp.js(TRAILER_ZUSTAND))
+                    bild('applink-5-trailer-laedt-noch-danach')
+                    cdp.js("(function(){var pm=window.ExoPlayer&&window.ExoPlayer.playbackManager;try{pm&&pm.stop()}catch(e){};"
+                           "document.querySelectorAll('.youtubePlayerContainer').forEach(function(e){e.remove()});return true})()")
+            else:
+                merke('Trailer-Knopf nach Neuladen da', False, cdp.js('location.hash'))
+            # b) ohne Eingriff (YouTube-Attrappe aus a ist noch geladen): Zurück nach 0,5 s (lädt noch) und 3 s (spielt)
+            for warte in (0.5, 3.0):
+                cdp.js(f"location.hash='#/details?id={film['id']}';true")
+                if not warten(cdp, "!!document.querySelector('.btnPlayTrailer:not(.hide)')", 40):
+                    merke(f'Trailer-Knopf da ({warte} s)', False, cdp.js('location.hash'))
+                    continue
+                time.sleep(2)
+                cdp.js("document.querySelector('.btnPlayTrailer:not(.hide)').click();true")
+                time.sleep(warte)
+                sh('input keyevent KEYCODE_BACK')
+                time.sleep(10)  # ein noch ladender Trailer hätte jetzt seine Ebene über die Seite gelegt
+                z = cdp.js(TRAILER_ZUSTAND) or {}
+                bild(f'applink-5-trailer-{warte}s')
+                z['protokoll'] = cdp.js("window.KinoLelTrailer ? window.KinoLelTrailer.protokoll.slice(-10) : null")
+                z['verlauf'] = cdp.js('history.length')
+                sauber = (z.get('hash') or '').startswith('#/details') and film['id'] in (z.get('hash') or '') \
+                    and not z.get('ebeneSichtbar') and not z.get('spielt') and not z.get('fehlerDialog')
+                if not sauber:
+                    z['fokus'] = [x.strip() for x in sh('dumpsys window').splitlines() if 'mCurrentFocus' in x or 'mFocusedApp' in x][:4]
+                merke(f'Trailer nach {warte} s verlassen: Detailseite ohne Überlagerung', sauber, z)
+                if not sauber:  # wie Lel: kommt man mit weiterem Zurück noch heraus?
+                    for _ in range(2):
+                        sh('input keyevent KEYCODE_BACK')
+                        time.sleep(4)
+                    danach = cdp.js(TRAILER_ZUSTAND) or {}
+                    danach['protokoll'] = cdp.js("window.KinoLelTrailer ? window.KinoLelTrailer.protokoll.slice(-6) : null")
+                    print('Nach zwei weiteren Zurück:', danach)
+                    merke(f'Trailer nach {warte} s: Zustand nach zwei weiteren Zurück (nur Info)', True, danach)
+                    bild(f'applink-5-trailer-{warte}s-danach')
+                    cdp.js("(function(){var pm=window.ExoPlayer&&window.ExoPlayer.playbackManager;try{pm&&pm.stop()}catch(e){};"
+                           "document.querySelectorAll('.youtubePlayerContainer').forEach(function(e){e.remove()});return true})()")
+
+        # 4d. Benachrichtigung vor der Löschung eines Wunsches – zuletzt, weil er die Geräteuhr vor- und zurückstellt
+        cdp = loeschhinweis_test(cdp) or cdp_verbinden()
+        if not cdp:
+            return
     finally:
         if LH['geschrieben'] or LH['gesehen_schluessel']:  # Testeinträge nie stehen lassen
             try:
