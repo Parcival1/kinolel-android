@@ -116,6 +116,8 @@ jobs:
           arch: x86_64
           target: google_apis
           profile: pixel_7
+          # Emulator 37.2.12.0 fest (lief bis v1.2 stabil); „latest“ 37.3.10.0 stürzte am 23.11. in 4 von 11 Läufen ab
+          emulator-build: 16428233
           disable-animations: true
           script: |
             bash .github/scripts/rauchtest.sh
@@ -171,6 +173,8 @@ jobs:
           arch: x86_64
           target: google_apis
           profile: pixel_7
+          # Emulator 37.2.12.0 fest (lief bis v1.2 stabil); „latest“ 37.3.10.0 stürzte am 23.11. in 4 von 11 Läufen ab
+          emulator-build: 16428233
           disable-animations: true
           script: |
             adb install -r apk/*.apk
