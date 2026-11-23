@@ -5,6 +5,7 @@ import android.annotation.SuppressLint
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
@@ -23,9 +24,11 @@ import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
+import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
+import androidx.work.workDataOf
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -47,6 +50,7 @@ import org.jellyfin.mobile.app.AppPreferences
 import org.jellyfin.mobile.data.dao.UserDao
 import org.jellyfin.mobile.utils.AndroidVersion
 import org.jellyfin.mobile.utils.requestPermission
+import org.jellyfin.sdk.api.client.ApiClient
 import org.jellyfin.sdk.api.client.exception.InvalidStatusException
 import org.jellyfin.sdk.api.client.extensions.displayPreferencesApi
 import org.jellyfin.sdk.api.client.extensions.systemApi
@@ -56,6 +60,7 @@ import timber.log.Timber
 import java.time.LocalDate
 import java.time.ZoneId
 import java.util.Locale
+import java.util.UUID
 import java.util.concurrent.TimeUnit
 
 /**
@@ -67,27 +72,36 @@ import java.util.concurrent.TimeUnit
  * Titel mit Löschtag in höchstens 7 Tagen. Geprüft wird bei jedem App-Start und im Hintergrund etwa alle 6 Std. (WorkManager).
  *
  * Je Titel und Löschtag höchstens eine Benachrichtigung pro Gerät; Sprache nach Bibliothek (`hu`), nicht nach der App.
+ * Gemeinsam mit dem Fenster (Lel 23.11.: „Wenn man es aber einmal weggeklickt hat soll es nicht mehr für diese Titel kommen,
+ * außer es wurde danach nochmal angeschaut und der countdown resettet.“): Titel, die in `kinolel-bald-gesehen` stehen, nicht
+ * melden; Antippen (ein Titel) bzw. Wegwischen trägt sie dort ein. Antippen bei mehreren öffnet die App, dort zeigt das
+ * Fenster die Liste und merkt sie beim Wegklicken selbst.
  * Android 13+: nach der Erlaubnis wird erst gefragt, wenn wirklich etwas anzuzeigen ist – einmal je neuem Titel.
  */
 object LoeschHinweis : KoinComponent {
+    const val SCHLUESSEL = "kinolel_bald_schluessel"
     private const val VORLIEBEN = "kinolel_loeschhinweis"
-    private const val GEZEIGT = "gezeigt" // „id:tag“, für die es schon eine Benachrichtigung gab
+    private const val GEZEIGT = "gezeigt" // „id:tag“, für die es auf diesem Gerät schon eine Benachrichtigung gab
     private const val OFFEN = "offen" // „id:tag“, die ohne Erlaubnis noch nicht gezeigt werden konnten
     private const val GEFRAGT = "gefragt" // „id:tag“, für die schon nach der Erlaubnis gefragt wurde
     private const val ABGEWIESEN = "abgewiesen" // Anmeldung, die der Server abgewiesen hat (fail2ban: nicht wiederholen)
     private const val KANAL = "kinolel_bald_geloescht"
     private const val ARBEIT = "kinolel-loeschhinweis"
-    private const val EINSTELLUNGEN = "kinolel-bald"
+    private const val LISTE = "kinolel-bald"
+    private const val GESEHEN = "kinolel-bald-gesehen" // CustomPrefs „id:tag“ = Datum (leer = nicht gesehen), wie kinolel.js
     private const val CLIENT = "kinolel"
     private const val STUNDEN = 6L
     private const val NICHT_ANGEMELDET = 401
     private val zone = ZoneId.of("Europe/Berlin")
-    private val kennung = Regex("[0-9a-f]{32}")
+    private val kennung = Regex("[0-9a-fA-F]{32}")
     private val sperre = Mutex()
 
+    /** `id` unverändert wie vom Server – der Schlüssel muss zu dem von kinolel.js passen */
     data class Eintrag(val id: String, val titel: String, val tag: String, val hu: Boolean, val tage: Int) {
         val schluessel get() = "$id:$tag"
     }
+
+    private class Zugang(val api: ApiClient, val benutzer: UUID, val anmeldung: String)
 
     /** App-Start (angemeldet): Hintergrundprüfung einplanen, gleich prüfen und – falls nötig – nach der Erlaubnis fragen */
     suspend fun beimStart(activity: AppCompatActivity) {
@@ -99,9 +113,37 @@ object LoeschHinweis : KoinComponent {
     private fun einplanen(context: Context) {
         val anfrage = PeriodicWorkRequestBuilder<LoeschHinweisWorker>(STUNDEN, TimeUnit.HOURS)
             .setInitialDelay(STUNDEN, TimeUnit.HOURS) // gleich nach dem Start prüft schon beimStart
-            .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
+            .setConstraints(mitNetz())
             .build()
         WorkManager.getInstance(context).enqueueUniquePeriodicWork(ARBEIT, ExistingPeriodicWorkPolicy.KEEP, anfrage)
+    }
+
+    private fun mitNetz() = Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
+
+    /** Angemeldetes Konto der App; null = nicht angemeldet oder vom Server schon einmal abgewiesen */
+    private fun zugang(context: Context): Zugang? {
+        val appPreferences = get<AppPreferences>()
+        val serverId = appPreferences.currentServerId ?: return null
+        val benutzer = appPreferences.currentUserId ?: return null
+        val serverUser = get<UserDao>().getServerUser(serverId, benutzer) ?: return null
+        val anmeldung = serverUser.user.accessToken?.hashCode()?.toString() ?: return null
+        if (vorlieben(context).getString(ABGEWIESEN, null) == anmeldung) return null // erst nach neuer Anmeldung wieder
+        return Zugang(get<ApiClientController>().getApiClient(serverId, benutzer), serverUser.user.userId, anmeldung)
+    }
+
+    private suspend fun einstellungen(zugang: Zugang, id: String) =
+        zugang.api.displayPreferencesApi.getDisplayPreferences(displayPreferencesId = id, userId = zugang.benutzer, client = CLIENT).content
+
+    /** Fehler beim Abruf: false = später erneut versuchen */
+    private fun fehler(context: Context, zugang: Zugang, e: Exception): Boolean {
+        if (e is CancellationException) throw e
+        if (e is InvalidStatusException) {
+            if (e.status == NICHT_ANGEMELDET) vorlieben(context).edit { putString(ABGEWIESEN, zugang.anmeldung) }
+            Timber.i("KinoLel-Löschhinweis: Server antwortet %d", e.status)
+            return e.status == NICHT_ANGEMELDET
+        }
+        Timber.i("KinoLel-Löschhinweis: keine Verbindung (%s)", e.javaClass.simpleName)
+        return false
     }
 
     /** Liste vom Server holen und neue Einträge melden. Nicht angemeldet / offline: still nichts tun. */
@@ -110,43 +152,28 @@ object LoeschHinweis : KoinComponent {
     }
 
     private suspend fun pruefenGesperrt(context: Context) {
-        val appPreferences = get<AppPreferences>()
-        val serverId = appPreferences.currentServerId ?: return
-        val benutzer = appPreferences.currentUserId ?: return
-        val serverUser = get<UserDao>().getServerUser(serverId, benutzer) ?: return
-        val anmeldung = serverUser.user.accessToken?.hashCode()?.toString() ?: return
-        val vorlieben = vorlieben(context)
-        if (vorlieben.getString(ABGEWIESEN, null) == anmeldung) return // abgemeldet: erst nach neuer Anmeldung wieder
-
-        val api = get<ApiClientController>().getApiClient(serverId, benutzer)
-        val eintraege = try {
-            val einstellungen = api.displayPreferencesApi.getDisplayPreferences(
-                displayPreferencesId = EINSTELLUNGEN,
-                userId = serverUser.user.userId,
-                client = CLIENT,
-            ).content
-            lesen(einstellungen.customPrefs["titel"])
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: InvalidStatusException) {
-            if (e.status == NICHT_ANGEMELDET) vorlieben.edit { putString(ABGEWIESEN, anmeldung) }
-            Timber.i("KinoLel-Löschhinweis: Server antwortet %d", e.status)
-            return
+        val zugang = zugang(context) ?: return
+        val (eintraege, gesehen) = try {
+            lesen(einstellungen(zugang, LISTE).customPrefs["titel"]) to
+                einstellungen(zugang, GESEHEN).customPrefs.filterValues { !it.isNullOrEmpty() }.keys
         } catch (e: Exception) {
-            Timber.i("KinoLel-Löschhinweis: keine Verbindung (%s)", e.javaClass.simpleName)
+            fehler(context, zugang, e)
             return
         }
 
+        val vorlieben = vorlieben(context)
         val heute = LocalDate.now(zone).toString()
-        fun aktuell(schluessel: String) = vorlieben.getStringSet(schluessel, null).orEmpty()
+        fun aktuell(name: String) = vorlieben.getStringSet(name, null).orEmpty()
             .filterTo(HashSet()) { it.substringAfterLast(':') >= heute } // nach dem Löschtag vergessen
         val gezeigt = aktuell(GEZEIGT)
-        val faellig = eintraege.filter { it.tag >= heute && it.schluessel !in gezeigt }.distinctBy { it.schluessel }
+        val faellig = eintraege
+            .filter { it.tag >= heute && it.schluessel !in gezeigt && it.schluessel !in gesehen }
+            .distinctBy { it.schluessel }
         val offen = HashSet<String>()
         if (faellig.isNotEmpty() && NotificationManagerCompat.from(context).areNotificationsEnabled()) {
             val gruppen = faellig.groupBy { it.hu }
             val serverKennung = if (gruppen.values.any { it.size == 1 }) {
-                runCatching { api.systemApi.getPublicSystemInfo().content.id }.getOrNull()?.takeIf(kennung::matches)
+                runCatching { zugang.api.systemApi.getPublicSystemInfo().content.id }.getOrNull()?.takeIf(kennung::matches)
             } else {
                 null
             }
@@ -156,8 +183,9 @@ object LoeschHinweis : KoinComponent {
             faellig.mapTo(offen) { it.schluessel }
         }
         Timber.i(
-            "KinoLel-Löschhinweis: %d Einträge, %d neu gemeldet, %d warten auf die Erlaubnis",
+            "KinoLel-Löschhinweis: %d Einträge, %d schon gesehen, %d neu gemeldet, %d warten auf die Erlaubnis",
             eintraege.size,
+            eintraege.count { it.schluessel in gesehen },
             faellig.size - offen.size,
             offen.size,
         )
@@ -165,6 +193,46 @@ object LoeschHinweis : KoinComponent {
             putStringSet(GEZEIGT, gezeigt)
             putStringSet(OFFEN, offen)
             putStringSet(GEFRAGT, aktuell(GEFRAGT))
+        }
+    }
+
+    /** Antippen/Wegwischen: Titel in `kinolel-bald-gesehen` eintragen – mit Netz, notfalls später (WorkManager) */
+    fun gesehenMelden(context: Context, schluessel: Collection<String>) {
+        if (schluessel.isEmpty()) return
+        val anfrage = OneTimeWorkRequestBuilder<LoeschHinweisGesehenWorker>()
+            .setInputData(workDataOf(SCHLUESSEL to schluessel.toTypedArray()))
+            .setConstraints(mitNetz())
+            .build()
+        WorkManager.getInstance(context).enqueue(anfrage)
+    }
+
+    /** Antippen einer Benachrichtigung mit einem Titel (MainActivity) */
+    fun ausIntent(context: Context, intent: Intent?) {
+        val schluessel = intent?.getStringArrayListExtra(SCHLUESSEL) ?: return
+        intent.removeExtra(SCHLUESSEL)
+        gesehenMelden(context, schluessel)
+    }
+
+    /** true = erledigt (oder nicht mehr möglich), false = später erneut */
+    suspend fun gesehenEintragen(context: Context, schluessel: Collection<String>): Boolean = withContext(Dispatchers.IO) {
+        val zugang = zugang(context.applicationContext) ?: return@withContext true
+        try {
+            val alt = einstellungen(zugang, GESEHEN)
+            val heute = LocalDate.now(zone).toString()
+            val neu = alt.customPrefs.toMutableMap()
+            schluessel.forEach { if (neu[it].isNullOrEmpty()) neu[it] = heute }
+            if (neu != alt.customPrefs) {
+                zugang.api.displayPreferencesApi.updateDisplayPreferences(
+                    displayPreferencesId = GESEHEN,
+                    userId = zugang.benutzer,
+                    client = CLIENT,
+                    data = alt.copy(customPrefs = neu),
+                )
+            }
+            Timber.i("KinoLel-Löschhinweis: %d als gesehen eingetragen", schluessel.size)
+            true
+        } catch (e: Exception) {
+            fehler(context.applicationContext, zugang, e)
         }
     }
 
@@ -193,7 +261,7 @@ object LoeschHinweis : KoinComponent {
         return liste.mapNotNull { element ->
             val o = element as? JsonObject ?: return@mapNotNull null
             fun wert(name: String) = runCatching { o[name]?.jsonPrimitive }.getOrNull()
-            val id = wert("id")?.contentOrNull?.replace("-", "")?.lowercase(Locale.ROOT)?.takeIf(kennung::matches)
+            val id = wert("id")?.contentOrNull?.takeIf(kennung::matches)
             val titel = wert("titel")?.contentOrNull?.takeIf { it.isNotBlank() }
             val tag = wert("tag")?.contentOrNull?.takeIf { runCatching { LocalDate.parse(it) }.isSuccess }
             if (id == null || titel == null || tag == null) return@mapNotNull null
@@ -227,6 +295,7 @@ object LoeschHinweis : KoinComponent {
     private fun zeigen(context: Context, liste: List<Eintrag>, hu: Boolean, serverKennung: String?) {
         kanalAnlegen(context)
         val texte = inSprache(context, if (hu) "hu" else "de")
+        val schluessel = ArrayList(liste.map { it.schluessel })
         val einzeln = liste.singleOrNull()
         val titel: String
         val text: String
@@ -237,30 +306,28 @@ object LoeschHinweis : KoinComponent {
             // Detailseite in der App (TitelLink nimmt die Adresse wie „Auf KinoLel abspielen“ aus KinoLel Wünsche)
             val adresse = "${BuildConfig.SERVER_URL}/web/#/details?id=${einzeln.id}" + serverKennung?.let { "&serverId=$it" }.orEmpty()
             ziel = Intent(context, MainActivity::class.java).setAction(Intent.ACTION_VIEW).setData(Uri.parse(adresse))
+                .putStringArrayListExtra(SCHLUESSEL, schluessel)
         } else {
-            // mehrere: App öffnen, dort zeigt kinolel.js das Fenster mit der Liste
+            // mehrere: App öffnen, dort zeigt kinolel.js das Fenster mit der Liste (und merkt sie beim Wegklicken)
             titel = texte.getString(R.string.kinolel_bald_mehrere_titel, liste.size)
             text = texte.getString(R.string.kinolel_bald_mehrere_text, liste.joinToString(", ") { it.titel })
             ziel = context.packageManager.getLaunchIntentForPackage(context.packageName) ?: Intent(context, MainActivity::class.java)
         }
         ziel.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        val nummer = liste.joinToString(",") { it.schluessel }.hashCode()
-        val beimTippen = PendingIntent.getActivity(
-            context,
-            nummer,
-            ziel,
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-        )
+        val nummer = schluessel.joinToString(",").hashCode()
+        val flags = PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        val weggewischt = Intent(context, LoeschHinweisWeggewischt::class.java).putStringArrayListExtra(SCHLUESSEL, schluessel)
         val benachrichtigung = NotificationCompat.Builder(context, KANAL)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(titel)
             .setContentText(text)
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
-            .setContentIntent(beimTippen)
+            .setContentIntent(PendingIntent.getActivity(context, nummer, ziel, flags))
+            .setDeleteIntent(PendingIntent.getBroadcast(context, nummer, weggewischt, flags))
             .setAutoCancel(true)
             .build()
-        NotificationManagerCompat.from(context).notify(EINSTELLUNGEN, nummer, benachrichtigung)
+        NotificationManagerCompat.from(context).notify(LISTE, nummer, benachrichtigung)
     }
 
     /** Kanal „Bald gelöscht“ / „Hamarosan törlődik“ (Name in der App-Sprache) */
@@ -289,5 +356,28 @@ class LoeschHinweisWorker(context: Context, parameters: WorkerParameters) : Coro
     override suspend fun doWork(): Result {
         LoeschHinweis.pruefen(applicationContext)
         return Result.success()
+    }
+}
+
+/** Titel in `kinolel-bald-gesehen` eintragen (nach Antippen/Wegwischen) */
+class LoeschHinweisGesehenWorker(context: Context, parameters: WorkerParameters) : CoroutineWorker(context, parameters) {
+    override suspend fun doWork(): Result {
+        val schluessel = inputData.getStringArray(LoeschHinweis.SCHLUESSEL)?.toList().orEmpty()
+        return when {
+            LoeschHinweis.gesehenEintragen(applicationContext, schluessel) -> Result.success()
+            runAttemptCount < MAX_VERSUCHE -> Result.retry()
+            else -> Result.success()
+        }
+    }
+
+    private companion object {
+        const val MAX_VERSUCHE = 5
+    }
+}
+
+/** Benachrichtigung weggewischt („Alle löschen“ eingeschlossen) */
+class LoeschHinweisWeggewischt : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+        LoeschHinweis.gesehenMelden(context, intent.getStringArrayListExtra(LoeschHinweis.SCHLUESSEL).orEmpty())
     }
 }

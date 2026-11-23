@@ -107,6 +107,11 @@
             android:exported="true"
             tools:ignore="ExportedReceiver" />
 
+        <!-- KinoLel: Benachrichtigung „… wird bald gelöscht“ weggewischt -> als gesehen eintragen (kinolel/LoeschHinweis.kt) -->
+        <receiver
+            android:name=".kinolel.LoeschHinweisWeggewischt"
+            android:exported="false" />
+
         <provider
             android:name=".ui.content.ImageProvider"
             android:authorities="${applicationId}.image-provider"

@@ -27,9 +27,9 @@ class LoeschHinweisTest : FunSpec({
 
     test("Liste aus kinolel-bald lesen") {
         val liste = LoeschHinweis.lesen(
-            """[{"id":"3E78A2D9-0000-0000-0000-00000000ABCD","titel":"How I Met Your Mother (2005)","tag":"2026-12-01","hu":false,"tage":35},""" +
+            """[{"id":"3e78a2d900000000000000000000abcd","titel":"How I Met Your Mother (2005)","tag":"2026-12-01","hu":false,"tage":35},""" +
                 """{"id":"0519d8f6060b5ed860806e10cb33fbc2","titel":"A Bosszúállók","tag":"2026-11-30","hu":true},""" +
-                """{"id":"kaputt","titel":"x","tag":"2026-12-01"},{"titel":"ohne id","tag":"2026-12-01"},7]""",
+                """{"id":"kaputt","titel":"x","tag":"2026-12-01"},{"id":"3e78a2d9-0000-0000-0000-00000000abcd","titel":"x","tag":"2026-12-01"},{"titel":"ohne id","tag":"2026-12-01"},7]""",
         )
         liste shouldBe listOf(
             LoeschHinweis.Eintrag("3e78a2d900000000000000000000abcd", "How I Met Your Mother (2005)", "2026-12-01", false, 35),

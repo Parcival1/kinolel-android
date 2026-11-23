@@ -9,7 +9,8 @@ geöffnet bekommt sondern … die KinoLel App auf dem Handy“).
     eingetragen, nichts abgeschickt
  4. zweiter Link (Code 654321), während die App läuft -> Code 654321 eingetragen
  4d. Benachrichtigung vor der Löschung eines Wunsches (Lel 23.11.2026): eigene Testeinträge in den Anzeige-Einstellungen
-    kinolel-bald des Hilfskontos, Erlaubnisfrage, Benachrichtigung, Tippen, Hintergrundprüfung (WorkManager), danach leer
+    kinolel-bald / kinolel-bald-gesehen des Hilfskontos, Erlaubnisfrage, Benachrichtigung, Tippen, Hintergrundprüfung
+    (WorkManager), Wegwischen; danach wie vorher
  5. abmelden (fail2ban: nur eine Anmeldung je Lauf)
 Aufruf: python3 applink_test.py <ausgabe-ordner>
 """
@@ -207,32 +208,76 @@ def anmeldefelder_leeren(cdp):
 # --- 4d. Benachrichtigung vor der Löschung eines Wunsches ---
 LH_KANAL = 'kinolel_bald_geloescht'
 LH_LOG = 'KinoLel-Löschhinweis:'
-LH = {'geschrieben': False}
+LH = {'geschrieben': False, 'gesehen_vorher': None, 'gesehen_schluessel': set()}
 MONATE_HU = ['január', 'február', 'március', 'április', 'május', 'június', 'július', 'augusztus', 'szeptember',
              'október', 'november', 'december']
 
-# Testeinträge mit dem Zugang des angemeldeten Hilfskontos (eigene Anzeige-Einstellungen, kein Admin-Schlüssel)
-LH_SCHREIBEN = """(async function(liste){
+# Anzeige-Einstellungen des angemeldeten Hilfskontos lesen/ändern (eigener Zugang, kein Admin-Schlüssel). Jellyfin löscht
+# keine CustomPrefs-Schlüssel – „nicht gesehen“ ist ein leerer Wert (wie in kinolel.js).
+LH_PREFS = """(async function(id, aendern){
   var u = ApiClient.getCurrentUserId();
-  var url = ApiClient.getUrl('DisplayPreferences/kinolel-bald', {userId: u, client: 'kinolel'});
+  var url = ApiClient.getUrl('DisplayPreferences/' + id, {userId: u, client: 'kinolel'});
   var h = {'Authorization': 'MediaBrowser Token="' + ApiClient.accessToken() + '"', 'Content-Type': 'application/json'};
   var p = await (await fetch(url, {headers: h})).json();
-  p.Id = 'kinolel-bald'; p.Client = 'kinolel';
-  p.CustomPrefs = Object.assign({}, p.CustomPrefs || {}, {titel: JSON.stringify(liste)});
-  var r = await fetch(url, {method: 'POST', headers: h, body: JSON.stringify(p)});
-  var q = await (await fetch(url, {headers: h})).json();
-  return {status: r.status, titel: (q.CustomPrefs || {}).titel || null};
-})(%s)"""
+  if (aendern) {
+    p.Id = id; p.Client = 'kinolel'; p.CustomPrefs = aendern(p.CustomPrefs || {});
+    var r = await fetch(url, {method: 'POST', headers: h, body: JSON.stringify(p)});
+    if (!r.ok) return {status: r.status};
+    p = await (await fetch(url, {headers: h})).json();
+  }
+  return {status: 200, prefs: p.CustomPrefs || {}};
+})(%s, %s)"""
+
+
+def lh_prefs(cdp, name, aendern='null'):
+    try:
+        r = cdp.js(LH_PREFS % (json.dumps(name), aendern)) or {}
+    except Exception as e:  # noqa: BLE001
+        return None, f'{type(e).__name__}: {e}'
+    return (r.get('prefs') if r.get('status') == 200 else None), r.get('status')
 
 
 def lh_schreiben(cdp, liste):
-    try:
-        r = cdp.js(LH_SCHREIBEN % json.dumps(liste, ensure_ascii=False)) or {}
-    except Exception as e:  # noqa: BLE001
-        return False, f'{type(e).__name__}: {e}'
-    ok = r.get('status') in (200, 204) and json.loads(r.get('titel') or 'null') == liste
+    """Testeinträge in kinolel-bald (wie jellyfin2_erinnerung.py --app)"""
+    text = json.dumps(liste, ensure_ascii=False)
+    prefs, status = lh_prefs(cdp, 'kinolel-bald', 'function(c){c.titel=%s;return c}' % json.dumps(text, ensure_ascii=False))
+    ok = prefs is not None and json.loads(prefs.get('titel') or 'null') == liste
     LH['geschrieben'] = bool(liste) or (LH['geschrieben'] and not ok)
-    return ok, r
+    return ok, status
+
+
+def lh_gesehen(cdp, setzen=None):
+    """kinolel-bald-gesehen lesen; setzen = {Schlüssel: Wert} (vorherige Werte werden für das Aufräumen gemerkt)"""
+    if not setzen:
+        return lh_prefs(cdp, 'kinolel-bald-gesehen')[0]
+    if LH['gesehen_vorher'] is None:
+        LH['gesehen_vorher'] = lh_prefs(cdp, 'kinolel-bald-gesehen')[0] or {}
+    LH['gesehen_schluessel'] |= set(setzen)
+    return lh_prefs(cdp, 'kinolel-bald-gesehen', 'function(c){return Object.assign(c,%s)}' % json.dumps(setzen))[0]
+
+
+def lh_aufraeumen(cdp):
+    """kinolel-bald leeren, Testschlüssel in kinolel-bald-gesehen wie vorher (Jellyfin löscht keine Schlüssel -> leer)"""
+    ok, _ = lh_schreiben(cdp, [])
+    alt = LH['gesehen_vorher'] or {}
+    zurueck = {k: alt.get(k) or '' for k in LH['gesehen_schluessel']}
+    if zurueck:
+        prefs = lh_prefs(cdp, 'kinolel-bald-gesehen', 'function(c){return Object.assign(c,%s)}' % json.dumps(zurueck))[0]
+        ok = ok and prefs is not None and all((prefs.get(k) or '') == v for k, v in zurueck.items())
+        if ok:
+            LH['gesehen_schluessel'] = set()
+    return ok
+
+
+def warte_auf_gesehen(cdp, schluessel, frist=40):
+    ende = time.time() + frist
+    werte = {}
+    while time.time() < ende:
+        werte = {k: (lh_gesehen(cdp) or {}).get(k) for k in schluessel}
+        if all(werte.values()):
+            break
+        time.sleep(3)
+    return werte
 
 
 def benachrichtigungen():
@@ -318,22 +363,35 @@ def hintergrund_lauf(stunden):
     return uhr, auftraege
 
 
+def app_starten():
+    adb('shell', 'am', 'start', '-W', '-n', f'{PAKET}/org.jellyfin.mobile.MainActivity')
+    cdp = cdp_verbinden()
+    if cdp:
+        warten(cdp, "!!window.ApiClient && !!ApiClient.accessToken()", 60)
+    return cdp
+
+
 def loeschhinweis_test(cdp):
-    """4d. Lel 23.11.2026: „… zu der Erinnerung für auslaufende Titel auch eine KinoLel App Benachrichtigung“.
+    """4d. Lel 23.11.2026: „… zu der Erinnerung für auslaufende Titel auch eine KinoLel App Benachrichtigung“ und „Wenn man
+    es aber einmal weggeklickt hat soll es nicht mehr für diese Titel kommen …“.
     Ohne Einträge nicht nach der Erlaubnis fragen; App-Start mit Eintrag fragt, dann Benachrichtigung (deutsch, ein Titel),
-    Tippen öffnet die Detailseite; Hintergrundprüfung bei beendeter App: zwei deutsche Titel in einer Benachrichtigung,
-    ungarischer Titel auf Ungarisch, gemeldeter Titel nicht noch einmal; zweiter Lauf meldet nichts erneut."""
-    filme = cdp.js("ApiClient.getItems(ApiClient.getCurrentUserId(),{IncludeItemTypes:'Movie',Recursive:true,Limit:4,"
+    Tippen öffnet die Detailseite und trägt den Titel in kinolel-bald-gesehen ein; Hintergrundprüfung bei beendeter App: zwei
+    deutsche Titel in einer Benachrichtigung, ungarischer Titel auf Ungarisch, gemeldeter und schon gesehener Titel nicht;
+    zweiter Lauf meldet nichts erneut; „Alle löschen“ trägt die Titel als gesehen ein."""
+    filme = cdp.js("ApiClient.getItems(ApiClient.getCurrentUserId(),{IncludeItemTypes:'Movie',Recursive:true,Limit:5,"
                    "SortBy:'SortName'}).then(function(r){return (r.Items||[]).map(function(i){return {id:i.Id,name:i.Name}})},"
                    "function(){return []})") or []
-    if not merke('Löschhinweis: vier Filme für Testeinträge', len(filme) == 4, [f['name'] for f in filme]):
+    if not merke('Löschhinweis: fünf Filme für Testeinträge', len(filme) == 5, [f['name'] for f in filme]):
         return cdp
-    t1, t2, t3, t4 = filme
+    t1, t2, t3, t4, t5 = filme
     tag = datetime.datetime.now(ZoneInfo('Europe/Berlin')).date() + datetime.timedelta(days=4)
     hu_datum = f'{tag.year}. {MONATE_HU[tag.month - 1]} {tag.day}.'
 
     def eintrag(f, hu):
         return {'id': f['id'], 'titel': f['name'], 'tag': tag.isoformat(), 'hu': hu, 'tage': 14 if hu else 35}
+
+    def schluessel(f):
+        return f"{f['id']}:{tag.isoformat()}"
 
     # a) bisher keine Frage: Konto ohne Einträge, App mehrfach gestartet und angemeldet
     e = re.search(r'android\.permission\.POST_NOTIFICATIONS: granted=(\w+)(?:, flags=\[([^\]]*)\])?',
@@ -342,6 +400,7 @@ def loeschhinweis_test(cdp):
           bool(e) and e.group(1) == 'false' and 'USER_SET' not in (e.group(2) or ''), e.group(0) if e else 'nicht gefunden')
 
     # b) Eintrag (deutsche Bibliothek) -> App-Start fragt nach der Erlaubnis -> erlauben -> Benachrichtigung
+    lh_gesehen(cdp, {schluessel(f): '' for f in filme})  # Testschlüssel sicher „nicht gesehen“ (merkt alte Werte)
     ok, info = lh_schreiben(cdp, [eintrag(t1, False)])
     if not merke('Löschhinweis: Testeintrag geschrieben (ein Titel)', ok, info):
         return cdp
@@ -362,7 +421,7 @@ def loeschhinweis_test(cdp):
     liste = warte_auf_benachrichtigungen(lambda l: einzeln in l, 45)
     merke('Löschhinweis: Benachrichtigung nach dem Erlauben (deutsch, ein Titel)', einzeln in liste, liste)
 
-    # c) Tippen -> Detailseite des Titels
+    # c) Tippen -> Detailseite des Titels, Titel in kinolel-bald-gesehen
     sh('cmd statusbar expand-notifications')
     time.sleep(2)
     stelle = knoten_mitte(oberflaeche(), re.escape(einzeln['titel']))
@@ -375,10 +434,14 @@ def loeschhinweis_test(cdp):
     time.sleep(2)
     bild('loeschhinweis-3-detailseite')
     merke('Löschhinweis: Tippen öffnet die Detailseite', da, (cdp.js('location.hash') if cdp else '')[:80])
+    werte = warte_auf_gesehen(cdp, [schluessel(t1)]) if cdp else {}
+    merke('Löschhinweis: Tippen trägt den Titel in kinolel-bald-gesehen ein', bool(werte) and all(werte.values()), werte)
 
-    # d) Hintergrund: weitere Titel, App beendet, WorkManager-Prüfung
-    ok, info = lh_schreiben(cdp, [eintrag(t1, False), eintrag(t2, False), eintrag(t3, False), eintrag(t4, True)])
-    if not merke('Löschhinweis: Testeinträge geschrieben (vier Titel, einer ungarisch)', ok, info):
+    # d) Hintergrund: weitere Titel (einer schon im Fenster gesehen), App beendet, WorkManager-Prüfung
+    lh_gesehen(cdp, {schluessel(t5): tag.isoformat()})
+    ok, info = lh_schreiben(cdp, [eintrag(t1, False), eintrag(t2, False), eintrag(t3, False), eintrag(t4, True),
+                                  eintrag(t5, False)])
+    if not merke('Löschhinweis: Testeinträge geschrieben (fünf Titel, einer ungarisch, einer schon gesehen)', ok, info):
         return cdp
     sh('input keyevent KEYCODE_HOME')
     time.sleep(2)
@@ -399,8 +462,8 @@ def loeschhinweis_test(cdp):
               mehrere in liste and ungarisch in liste,
               {'liste': liste, 'uhr_gestellt': uhr, 'auftraege': auftraege, 'app_vorher_beendet': app_beendet,
                'log': log_zeilen()[-3:]})
-        merke('Löschhinweis: schon gemeldeter Titel nicht noch einmal',
-              not any(t1['name'] in (b['titel'] or '') for b in liste), liste)
+        merke('Löschhinweis: gemeldeter und schon gesehener Titel nicht (noch einmal)',
+              not any(f['name'] in (b['titel'] or '') + (b['text'] or '') for b in liste for f in (t1, t5)), liste)
 
         # e) zweiter Hintergrundlauf: nichts Neues
         vorher = len(log_zeilen())
@@ -415,16 +478,26 @@ def loeschhinweis_test(cdp):
     finally:
         uhr_stellen(int(time.time()))
         sh('settings put global auto_time 1')
-        with open(os.path.join(AUS, 'loeschhinweis-log.txt'), 'w', encoding='utf-8') as f:
-            f.write('\n'.join(log_zeilen()) + '\n')
 
-    # f) aufräumen: App wieder öffnen, Testeinträge leeren
-    adb('shell', 'am', 'start', '-W', '-n', f'{PAKET}/org.jellyfin.mobile.MainActivity')
-    cdp = cdp_verbinden()
+    # f) „Alle löschen“ in der Benachrichtigungsleiste -> Titel in kinolel-bald-gesehen
+    sh('cmd statusbar expand-notifications')
+    time.sleep(2)
+    knopf = knoten_mitte(oberflaeche(), r'^(Clear all|Alle löschen)$|:id/dismiss_text$')
+    bild('loeschhinweis-5-leiste')
+    if knopf:
+        sh(f'input tap {knopf[0]} {knopf[1]}')
+    time.sleep(2)
+    sh('cmd statusbar collapse')
+    merke('Löschhinweis: „Alle löschen“ entfernt die Benachrichtigungen', bool(knopf) and not benachrichtigungen(), benachrichtigungen())
+    cdp = app_starten()
+    werte = warte_auf_gesehen(cdp, [schluessel(f) for f in (t2, t3, t4)]) if cdp else {}
+    merke('Löschhinweis: Wegwischen trägt die Titel in kinolel-bald-gesehen ein', bool(werte) and all(werte.values()), werte)
+    with open(os.path.join(AUS, 'loeschhinweis-log.txt'), 'w', encoding='utf-8') as f:
+        f.write('\n'.join(log_zeilen()) + '\n')
+
+    # g) aufräumen
     if cdp:
-        warten(cdp, "!!window.ApiClient && !!ApiClient.accessToken()", 60)
-        ok, info = lh_schreiben(cdp, [])
-        merke('Löschhinweis: Testeinträge wieder leer', ok, info)
+        merke('Löschhinweis: Testeinträge entfernt (kinolel-bald leer, gesehen wie vorher)', lh_aufraeumen(cdp))
     return cdp
 
 
@@ -624,12 +697,12 @@ def main():
                 cdp.js("(function(){var pm=window.ExoPlayer&&window.ExoPlayer.playbackManager;try{pm&&pm.stop()}catch(e){};"
                        "document.querySelectorAll('.youtubePlayerContainer').forEach(function(e){e.remove()});return true})()")
     finally:
-        if LH['geschrieben']:  # Testeinträge nie stehen lassen
+        if LH['geschrieben'] or LH['gesehen_schluessel']:  # Testeinträge nie stehen lassen
             try:
                 cdp = cdp_verbinden() if not cdp else cdp
-                print('Löschhinweis-Testeinträge leeren:', lh_schreiben(cdp, []))
+                print('Löschhinweis-Testeinträge entfernen:', lh_aufraeumen(cdp))
             except Exception as e:  # noqa: BLE001
-                print('Löschhinweis-Testeinträge NICHT geleert:', type(e).__name__)
+                print('Löschhinweis-Testeinträge NICHT entfernt:', type(e).__name__)
         # 5. abmelden (Zugang nie ausgeben)
         print('Abmelden:', cdp.js("(function(){try{var c=JSON.parse(localStorage.getItem('jellyfin_credentials'));var s=c.Servers[0];"
                                   "if(!s.AccessToken)return 'keine Sitzung';return fetch('https://kinolel.de/Sessions/Logout',{method:'POST',"

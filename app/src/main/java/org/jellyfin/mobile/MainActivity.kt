@@ -137,6 +137,8 @@ class MainActivity : AppCompatActivity() {
         if (savedInstanceState == null) FernseherLink.ausIntent(intent)
         // KinoLel (Lel 27.10.2026): „Auf KinoLel abspielen“ aus KinoLel Wünsche öffnet den Titel hier
         if (savedInstanceState == null) TitelLink.ausIntent(intent)
+        // KinoLel (Lel 23.11.2026): Benachrichtigung „… wird bald gelöscht“ angetippt -> als gesehen eintragen
+        if (savedInstanceState == null) LoeschHinweis.ausIntent(this, intent)
 
         // Bind player service
         bindService(Intent(this, RemotePlayerService::class.java), serviceConnection, Service.BIND_AUTO_CREATE)
@@ -190,6 +192,7 @@ class MainActivity : AppCompatActivity() {
         // KinoLel: Link vom Fernseher-QR-Code bzw. aus KinoLel Wünsche, während die App schon läuft (singleTask)
         FernseherLink.ausIntent(intent)
         TitelLink.ausIntent(intent)
+        LoeschHinweis.ausIntent(this, intent)
     }
 
     override fun onResume() {
