@@ -43,7 +43,7 @@
     <string name="kinolel_update_suchen_info">%1$s. verzió – koppints a frissítések kereséséhez</string>
     <string name="kinolel_bald_kanal">Hamarosan törlődik</string>
     <string name="kinolel_bald_ein_titel">Hamarosan törlődik: „%1$s”</string>
-    <string name="kinolel_bald_ein_text">Törlés: %1$s. Amint valaki elkezdi nézni, %2$s határidő újraindul.</string>
+    <string name="kinolel_bald_ein_text">Törlés: %1$s Amint valaki elkezdi nézni, %2$s határidő újraindul.</string>
     <string name="kinolel_bald_mehrere_titel">%1$d kért címed hamarosan törlődik</string>
     <string name="kinolel_bald_mehrere_text">%1$s – koppints a részletekért.</string>
 </resources>

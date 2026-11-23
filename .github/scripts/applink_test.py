@@ -457,7 +457,7 @@ def loeschhinweis_test(cdp):
     app_beendet = not sh(f'pidof {PAKET}').strip()
     mehrere = {'titel': '2 deiner Wünsche werden bald gelöscht', 'text': f"{t2['name']}, {t3['name']} – tippe für Details."}
     ungarisch = {'titel': f'Hamarosan törlődik: „{t4["name"]}”',
-                 'text': f'Törlés: {hu_datum}. Amint valaki elkezdi nézni, a 2 hetes határidő újraindul.'}
+                 'text': f'Törlés: {hu_datum} Amint valaki elkezdi nézni, a 2 hetes határidő újraindul.'}
     try:
         uhr, auftraege = hintergrund_lauf(7)
         liste = warte_auf_benachrichtigungen(lambda l: mehrere in l and ungarisch in l, 45)

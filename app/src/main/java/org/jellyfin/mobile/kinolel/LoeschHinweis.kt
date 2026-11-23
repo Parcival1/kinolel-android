@@ -95,6 +95,7 @@ object LoeschHinweis : KoinComponent {
     private val zone = ZoneId.of("Europe/Berlin")
     private val kennung = Regex("[0-9a-fA-F]{32}")
     private val sperre = Mutex()
+    private val gesehenSperre = Mutex() // „Alle löschen“: mehrere Einträge gleichzeitig – nacheinander lesen und schreiben
 
     /** `id` unverändert wie vom Server – der Schlüssel muss zu dem von kinolel.js passen */
     data class Eintrag(val id: String, val titel: String, val tag: String, val hu: Boolean, val tage: Int) {
@@ -216,9 +217,13 @@ object LoeschHinweis : KoinComponent {
     }
 
     /** true = erledigt (oder nicht mehr möglich), false = später erneut */
-    suspend fun gesehenEintragen(context: Context, schluessel: Collection<String>): Boolean = withContext(Dispatchers.IO) {
-        val zugang = zugang(context.applicationContext) ?: return@withContext true
-        try {
+    suspend fun gesehenEintragen(context: Context, schluessel: Collection<String>): Boolean = gesehenSperre.withLock {
+        withContext(Dispatchers.IO) { gesehenEintragenGesperrt(context.applicationContext, schluessel) }
+    }
+
+    private suspend fun gesehenEintragenGesperrt(context: Context, schluessel: Collection<String>): Boolean {
+        val zugang = zugang(context) ?: return true
+        return try {
             val alt = einstellungen(zugang, GESEHEN)
             val heute = LocalDate.now(zone).toString()
             val neu = alt.customPrefs.toMutableMap()
@@ -234,7 +239,7 @@ object LoeschHinweis : KoinComponent {
             Timber.i("KinoLel-Löschhinweis: %d als gesehen eingetragen", schluessel.size)
             true
         } catch (e: Exception) {
-            fehler(context.applicationContext, zugang, e)
+            fehler(context, zugang, e)
         }
     }
 
