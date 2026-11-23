@@ -115,7 +115,9 @@ object LoeschHinweis : KoinComponent {
             .setInitialDelay(STUNDEN, TimeUnit.HOURS) // gleich nach dem Start prüft schon beimStart
             .setConstraints(mitNetz())
             .build()
-        WorkManager.getInstance(context).enqueueUniquePeriodicWork(ARBEIT, ExistingPeriodicWorkPolicy.KEEP, anfrage)
+        // UPDATE statt KEEP: Zeitplan bleibt, der System-Auftrag wird aber neu angelegt, falls er verloren ging
+        // (z. B. „Beenden erzwingen“ löscht ihn, WorkManager erkennt das nicht auf jedem Gerät)
+        WorkManager.getInstance(context).enqueueUniquePeriodicWork(ARBEIT, ExistingPeriodicWorkPolicy.UPDATE, anfrage)
     }
 
     private fun mitNetz() = Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()

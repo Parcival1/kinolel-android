@@ -38,6 +38,17 @@ Hinweise:
 - Downloads liegen im geschützten App-Speicher (nicht in Galerie/Dateien), beim Deinstallieren sind sie weg.
 - Kleinere Stufen wandelt der Server beim Herunterladen um; Untertitel (auch ungarische) werden mitgeladen.
 
+## Benachrichtigung vor dem Löschen (ab v1.3)
+Wünsche auf Jellyfin2 werden nach 5 Wochen ohne Wiedergabe gelöscht (ungarische Bibliotheken: 2 Wochen). 7 Tage vorher:
+
+| # | Was | Erwartung |
+|---|---|---|
+| 17 | Eigener Wunsch wird in höchstens 7 Tagen gelöscht, KinoLel öffnen | Android fragt einmal nach Benachrichtigungen → **Zulassen**; Benachrichtigung „„Titel“ wird bald gelöscht“ (ungarische Bibliothek: ungarisch) |
+| 18 | Benachrichtigung antippen | Detailseite des Titels; bei mehreren Titeln öffnet sich KinoLel mit der Liste |
+| 19 | Angetippt oder weggewischt | Kommt für diesen Titel nicht wieder (auch das Fenster in KinoLel nicht) – erst nach einer neuen Wiedergabe, 7 Tage vor dem neuen Löschtag |
+
+Die App prüft beim Öffnen und im Hintergrund etwa alle 6 Stunden.
+
 ## Was ist neu (ab v0.1.5)
 Nach einem Update zeigt KinoLel beim ersten Start **einmal** „Neu in KinoLel <Version>“ mit den Neuerungen (Deutsch/Ungarisch/Englisch je nach Handysprache). Beim nächsten Start nicht mehr. Nach einer Neuinstallation erscheint nichts.
 

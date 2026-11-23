@@ -349,8 +349,11 @@ def uhr_stellen(sekunden):
 
 
 def workmanager_auftraege():
-    roh = sh('dumpsys jobscheduler')
-    return sorted(set(re.findall(r'JOB #u\d+a\d+/(\d+):[^\n]*?' + re.escape(PAKET) + r'/androidx\.work', roh)), key=int)
+    muster = r'JOB #u\d+a\d+/(\d+):[^\n]*?' + re.escape(PAKET) + r'/androidx\.work'
+    roh = sh(f'dumpsys jobscheduler {PAKET}')
+    ids = re.findall(muster, roh) or re.findall(muster, roh := sh('dumpsys jobscheduler'))
+    LH['jobs'] = [z.strip()[:200] for z in roh.splitlines() if PAKET in z][:8]  # Diagnose
+    return sorted(set(ids), key=int)
 
 
 def hintergrund_lauf(stunden):
@@ -358,7 +361,7 @@ def hintergrund_lauf(stunden):
     der App über JobScheduler sofort starten – wie Android im Hintergrund"""
     uhr = uhr_stellen(geraetezeit() + stunden * 3600)
     auftraege = workmanager_auftraege()
-    for j in auftraege:
+    for j in auftraege or [str(i) for i in range(40)]:  # nicht gefunden: WorkManager vergibt die Nummern ab 0
         sh(f'cmd jobscheduler run -f {PAKET} {j}')
     return uhr, auftraege
 
@@ -396,8 +399,10 @@ def loeschhinweis_test(cdp):
     # a) bisher keine Frage: Konto ohne Einträge, App mehrfach gestartet und angemeldet
     e = re.search(r'android\.permission\.POST_NOTIFICATIONS: granted=(\w+)(?:, flags=\[([^\]]*)\])?',
                   sh(f'dumpsys package {PAKET}'))
+    gefragt = [z for z in log_zeilen() if 'erfragen' in z]
     merke('Löschhinweis: ohne Einträge nicht nach der Erlaubnis gefragt',
-          bool(e) and e.group(1) == 'false' and 'USER_SET' not in (e.group(2) or ''), e.group(0) if e else 'nicht gefunden')
+          bool(e) and e.group(1) == 'false' and 'USER_SET' not in (e.group(2) or '') and not gefragt,
+          {'erlaubnis': e.group(0) if e else 'nicht gefunden', 'log': gefragt})
 
     # b) Eintrag (deutsche Bibliothek) -> App-Start fragt nach der Erlaubnis -> erlauben -> Benachrichtigung
     lh_gesehen(cdp, {schluessel(f): '' for f in filme})  # Testschlüssel sicher „nicht gesehen“ (merkt alte Werte)
@@ -461,7 +466,7 @@ def loeschhinweis_test(cdp):
         merke('Löschhinweis: Hintergrundprüfung – zwei deutsche Titel zusammen, ungarischer Titel auf Ungarisch',
               mehrere in liste and ungarisch in liste,
               {'liste': liste, 'uhr_gestellt': uhr, 'auftraege': auftraege, 'app_vorher_beendet': app_beendet,
-               'log': log_zeilen()[-3:]})
+               'log': log_zeilen()[-3:], 'jobscheduler': LH.get('jobs')})
         merke('Löschhinweis: gemeldeter und schon gesehener Titel nicht (noch einmal)',
               not any(f['name'] in (b['titel'] or '') + (b['text'] or '') for b in liste for f in (t1, t5)), liste)
 
@@ -525,6 +530,10 @@ def main():
     # Die App fragt nach jedem Start einmal nach Bluetooth (Dialog über der Weboberfläche) – vorab erlauben, sonst
     # schließt ein Zurück im Test nur diesen Dialog statt in der Weboberfläche anzukommen
     sh(f'pm grant {PAKET} android.permission.BLUETOOTH_CONNECT')
+    # rauchtest.sh erlaubt Benachrichtigungen (Fotos ohne Dialog) – hier wie nach einer echten Installation: nicht erlaubt,
+    # nie gefragt (Löschhinweis 4d: die App fragt erst, wenn etwas anzuzeigen ist)
+    sh(f'pm revoke {PAKET} android.permission.POST_NOTIFICATIONS')
+    sh(f'pm clear-permission-flags {PAKET} android.permission.POST_NOTIFICATIONS user-set user-fixed')
     # Android zeigt beim ersten Vollbild einmalig „Viewing full screen … Got it“ – auf echten Geräten längst bestätigt
     sh('settings put secure immersive_mode_confirmations confirmed')
     aus = link_oeffnen('123456')
