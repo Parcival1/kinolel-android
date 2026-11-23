@@ -726,6 +726,15 @@ try:
 except Exception as e:  # noqa: BLE001
     merke('Ablauf', False, f'{type(e).__name__}: {e}')
 finally:
+    # Abstürze der App (Java/nativ) aus dem Absturzspeicher; WebView-Renderer-Abstürze nur zur Diagnose in der Datei
+    try:
+        absturz = adb('logcat', '-d', '-b', 'crash')
+        with open(os.path.join(AUS, 'logcat-crash.txt'), 'w', encoding='utf-8') as f:
+            f.write(absturz)
+        eigene = [z for z in absturz.splitlines() if re.search(r'Process: ' + re.escape(PAKET) + r'(, |$)|>>> ' + re.escape(PAKET) + r' <<<', z)]
+        merke('App ohne Absturz (logcat crash)', not eigene, eigene[:3])
+    except Exception as e:  # noqa: BLE001
+        print('Absturzspeicher nicht lesbar:', type(e).__name__)
     with open(os.path.join(AUS, 'ergebnis.json'), 'w', encoding='utf-8') as f:
         json.dump(ergebnis, f, ensure_ascii=False, indent=1, default=str)
     fehler = [k for k, v in ergebnis.items() if not v['ok']]
