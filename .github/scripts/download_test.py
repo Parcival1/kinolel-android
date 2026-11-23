@@ -213,6 +213,28 @@ def titel_suchen(cdp, name, typ):
       return it?{id:it.Id,name:it.Name,typ:it.Type,ud:it.UserData||{}}:null})()""" % (json.dumps(name), json.dumps(typ), json.dumps(name)))
 
 
+def netz_bestaetigt(frist):
+    """WLAN von Android als funktionierend bestätigt (VALIDATED) – sonst startet JobScheduler keine Download-Aufträge
+    (23.11.2026: zweimal „wartet“, im Emulator ließ sich kinolel.de anfangs nicht auflösen)"""
+    ende = time.time() + frist
+    while True:
+        roh = sh('dumpsys connectivity')
+        if re.search(r'Transports: WIFI Capabilities: \S*\bVALIDATED\b', roh):
+            return True, ''
+        if time.time() >= ende:
+            return False, ' '.join(re.findall(r'Transports: WIFI Capabilities: \S+', roh))[:300]
+        time.sleep(3)
+
+
+def jobs_zustand():
+    """JobScheduler-Sicht auf die Aufträge der App (Bedingungen erfüllt/offen) – zur Fehlersuche bei „wartet“"""
+    roh = sh(f'dumpsys jobscheduler {PAKET}')
+    with open(os.path.join(AUS, 'jobscheduler.txt'), 'w', encoding='utf-8') as f:
+        f.write(roh)
+    return [z.strip()[:200] for z in roh.splitlines()
+            if re.search(r'JOB |constraints|Unsatisfied|Network|readiness|Pending|Expedited|Started', z)][:30]
+
+
 def herunterladen(cdp, titel, qualitaet_muster, bildname):
     cdp.js("location.hash='#/details?id=%s&serverId='+ApiClient.serverId();true" % titel['id'])
     da = warten(cdp, "!!document.querySelector('.itemDetailPage:not(.hide) .kl-dl')", 40)
@@ -237,7 +259,8 @@ def herunterladen(cdp, titel, qualitaet_muster, bildname):
         if stand.get('s') in ('fertig', 'fehler'):
             break
         time.sleep(3)
-    return schritt(f"Download fertig ({titel['name']})", stand and stand.get('s') == 'fertig', stand=stand)
+    fertig = bool(stand) and stand.get('s') == 'fertig'
+    return schritt(f"Download fertig ({titel['name']})", fertig, stand=stand, **({} if fertig else {'jobs': jobs_zustand()}))
 
 
 def abspielen_offline(name_muster, bildname):
@@ -366,7 +389,14 @@ def main():
     passt = bool(quellen) and all(TITEL_B.split(' - ')[0] in q['datei'] for i in quellen for q in i['quellen'])
     schritt('Medienquelle von Titel B gehört zum Titel', passt, quellen=quellen)
 
-    # 2. Herunterladen
+    # 2. Herunterladen – erst, wenn Android das WLAN bestätigt hat (notfalls WLAN einmal aus und an)
+    bestaetigt, info = netz_bestaetigt(60)
+    if not bestaetigt:
+        sh('svc wifi disable')
+        time.sleep(5)
+        sh('svc wifi enable')
+        bestaetigt, info = netz_bestaetigt(120)
+    schritt('Emulator-WLAN von Android bestätigt (VALIDATED)', bestaetigt, netz=info)
     ok_a = herunterladen(cdp, a, r'^Original', '10-a')
     ok_b = herunterladen(cdp, b, r'^Klein \(480p\)', '20-b') if passt else False
     if ok_a:
