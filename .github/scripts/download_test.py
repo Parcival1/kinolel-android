@@ -43,7 +43,8 @@ def schritt(name, ok, **mehr):
 
 def adb(*args, text=True, check=False, timeout=120):
     befehl = ['adb'] + (['-s', SERIAL] if SERIAL else []) + list(args)
-    r = subprocess.run(befehl, capture_output=True, text=text, timeout=timeout)
+    r = subprocess.run(befehl, capture_output=True, text=text, timeout=timeout,
+                       **({'encoding': 'utf-8', 'errors': 'replace'} if text else {}))  # Logcat: ungültiges UTF-8 möglich
     if check and r.returncode != 0:
         raise RuntimeError(f'adb {args}: {r.stderr}')
     return r.stdout if text else r.stdout

@@ -83,6 +83,10 @@ jobs:
 
   rauchtest:
     name: Rauchtest im Emulator
+    # Hilfskonto kinolel-hilfe ist gemeinsam – nie zwei solche Tests gleichzeitig (Löschhinweis-Testeinträge; 23.11.: main- und Tag-Lauf störten sich)
+    concurrency:
+      group: kinolel-hilfe-rauchtest
+      cancel-in-progress: false
     needs: build
     # Emulator-Jobs auf 24.04: auf ubuntu-26.04 (Abbild 20261116) verschwand der Emulator am 23.11. mehrfach ohne Meldung
     runs-on: ubuntu-24.04
@@ -149,6 +153,10 @@ jobs:
   # Prüft auch Befehle vom Server an den nativen Player (Play, Pause, Weiter, Spulen, Stopp).
   downloadtest:
     name: Download-Test im Emulator (offline)
+    # Hilfskonto kinolel-hilfe ist gemeinsam – nie zwei solche Tests gleichzeitig (Downloads, Wiedergabeposition; 23.11.: main- und Tag-Lauf störten sich)
+    concurrency:
+      group: kinolel-hilfe-downloadtest
+      cancel-in-progress: false
     needs: build
     if: startsWith(github.ref, 'refs/tags/v') || contains(github.event.head_commit.message, '[download-test]')
     # Emulator-Jobs auf 24.04: auf ubuntu-26.04 (Abbild 20261116) verschwand der Emulator am 23.11. mehrfach ohne Meldung

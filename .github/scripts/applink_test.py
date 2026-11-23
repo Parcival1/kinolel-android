@@ -44,7 +44,8 @@ def merke(name, ok, info=''):
 
 
 def adb(*args, text=True, timeout=120):
-    return subprocess.run(['adb', *args], capture_output=True, text=text, timeout=timeout).stdout
+    return subprocess.run(['adb', *args], capture_output=True, text=text, timeout=timeout,
+                          **({'encoding': 'utf-8', 'errors': 'replace'} if text else {})).stdout  # Logcat: ungültiges UTF-8 möglich
 
 
 def sh(befehl):
